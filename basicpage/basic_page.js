@@ -88,42 +88,8 @@ $( document ).ready(function() {
 	  {
 		  text=text.substring(0, text.length-31);
 		  document.getElementById('details').innerHTML="<center>"+text+"</center>";
-	  }});
-  
-  var auth_data=$.sessionStorage( 'auth_data' );  
-  
-  if(auth_data===null || auth_data==='undefined' || auth_data.verifiedEmail==='undefined')
-	{
-	  console.log('login :'+document.getElementById('loginButton'));
-	  if(document.getElementById('loginButton'))
-	  {
-		  console.log('login button');
-		  document.getElementById('loginButton').style.visibility='visible';
-		  document.getElementById('loginButton').onclick=function(){console.log('login');window.location.href = "/login.html";}
 	  }
-	  
-	}
-  else
-		{	
-	  $.getJSON( "https://gorman-tec-au.appspot.com/auth.json?oauthAccessToken="+auth_data.oauthAccessToken, function( data ) {
-		  console.log(data);
-	  });
-	  
-		  console.log('logout :'+document.getElementById('loginButton'));
-		    if(document.getElementById('loginButton'))
-			{
-				console.log('logout button');
-				document.getElementById('loginButtonImg').src='//gorman-tec-au.appspot.com/images/chrfb/system_white/HARDWAREOUT_32x32-32.png';
-				document.getElementById('loginButton').style.visibility='visible';
-				document.getElementById('myAccountButton').style.visibility='visible';
-				document.getElementById('loginButton').onclick=function(){
-					console.log('logout');window.location.href = "/logout.html";
-					document.getElementById('myAccountButton').style.visibility='hidden';
-				}
-			}
-		}
-	  
-	//});
+  	});
   
 });  
 
