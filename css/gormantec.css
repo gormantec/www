@@ -323,14 +323,15 @@ td.gs-grid
 	font-family: "Roboto", Helvetica, Arial, sans-serif;
 	color: #fff;
 	background-color: rgba(22,160,133,0.85);
-	width:200px;
-	height:200px;
+	width:140px;
+	height:140px;
 	border-style: solid;
 	border-color: #138a72;
 	border-width: 1px;
 }
 .square-button .material-icons-outlined{
 	font-size:30px;
+	padding-bottom:10px;
 }
 .button-light
 {
