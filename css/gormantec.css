@@ -329,6 +329,12 @@ td.gs-grid
 	border-color: #138a72;
 	border-width: 1px;
 	padding:10px;
+	cursor: pointer;
+}
+.square-button:hover
+{
+	background-color: rgba(22,160,133,1);
+	border-color: #010101;
 }
 .square-button .material-icons-outlined{
 	font-size:100px;
