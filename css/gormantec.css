@@ -323,7 +323,7 @@ td.gs-grid
 {
 	font-family: "Roboto", Helvetica, Arial, sans-serif;
 	color: #fff;
-	background-color: #16a085;
+	background-color: rgba(22,160,133,0.85);
 	border-color: #138a72;
 	text-decoration: none;
 	text-shadow: 0 1px 1px rgba(0,0,0,0.85);
