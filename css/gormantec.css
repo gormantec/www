@@ -341,10 +341,10 @@ td.gs-grid
 }
 .square-button .material-icons-outlined{
 	font-size:90px;
-	padding-bottom:10px;
+	padding-bottom:2px;
 }
 .icon-text{
-	padding-top:4px;
+	padding-top:2px;
 	font-size:16px;
 }
 .button-light
