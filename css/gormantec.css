@@ -328,7 +328,7 @@ td.gs-grid
 	border-style: solid;
 	border-color: #138a72;
 	border-width: 1px;
-	padding:6px;
+	padding-top:4px;
 	margin-top:4px;
 	cursor: pointer;
 }
