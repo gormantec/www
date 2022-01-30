@@ -57,10 +57,7 @@
 					</div>
 				</div>
 				<br/>
-				<button id="WEBDEVELOPMENT" class="button-light" unselectable="off">WEB DEVELOPMENT</button><br/>
-				<button id="MOCKMOBILEDESIGNER" class="button-light" unselectable="off">MOCK MOBILE DESIGNER</button><br/>
-				<button id="PROFESSIONALSERVICES" class="button-light" unselectable="off">PROFESSIONAL SERVICES</button><br/>
-				<button id="HELPDESK" class="button-light" unselectable="off">HELP DESK</button>
+				<button id="SERVICEDESK" class="button-light" unselectable="off">Service Desk</button>
 				<!--  thanks to http://www.ajaxload.info/ -->
 			</center>
 			
@@ -75,29 +72,11 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 <script src="/basicpage/basic_page.js" type="text/javascript"></script>
 <script>
-	$('#WEBDEVELOPMENT').click(function() {
-		var hp=new HomePage();
-		RootPanel.transitionTo(hp,'white',10);
-		hp.load();
-		$('#loginButton').css('display','none');
-		$('#myAccountButton').css('display','none');
-	});
-	$('#MOCKMOBILEDESIGNER').click(function() {
-		window.location.href = "http://www.gormantec.com/android/Designer.html";
-	});
-	$('#PROFESSIONALSERVICES').click(function() {
+
+	$('#SERVICEDESK').click(function() {
 		window.location.href = "https://gormantec.freshdesk.com/";
 	});
-	$('#HELPDESK').click(function() {
-		window.location.href = "https://gormantec.freshdesk.com/";
-	});
-	$('#myAccountButton').click(function() {
-		var hp=new PageMyAccount();
-		RootPanel.transitionTo(hp,'white',10);
-		hp.load();
-		$('#loginButton').css('display','none');
-		$('#myAccountButton').css('display','none');
-	});
+
 
 </script>
 </body>
