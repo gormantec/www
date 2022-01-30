@@ -328,7 +328,7 @@ td.gs-grid
 	border-style: solid;
 	border-color: #138a72;
 	border-width: 1px;
-	padding:10px;
+	padding:6px;
 	cursor: pointer;
 }
 .square-button:hover
@@ -341,7 +341,7 @@ td.gs-grid
 	padding-bottom:10px;
 }
 .icon-text{
-	padding-top:10px;
+	padding-top:4px;
 	font-size:16px;
 }
 .button-light
