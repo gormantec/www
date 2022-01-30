@@ -329,6 +329,9 @@ td.gs-grid
 	border-color: #138a72;
 	border-width: 1px;
 }
+.square-button .material-icons-outlined{
+	font-size:30px;
+}
 .button-light
 {
 	font-family: "Roboto", Helvetica, Arial, sans-serif;
