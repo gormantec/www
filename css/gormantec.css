@@ -318,7 +318,17 @@ td.gs-grid
 	top: 0px;
 	right: 0px;
 }
-
+.square-button
+{
+	font-family: "Roboto", Helvetica, Arial, sans-serif;
+	color: #fff;
+	background-color: rgba(22,160,133,0.85);
+	width:200px;
+	height:200px;
+	border-style: solid;
+	border-color: #138a72;
+	border-width: 1px;
+}
 .button-light
 {
 	font-family: "Roboto", Helvetica, Arial, sans-serif;
