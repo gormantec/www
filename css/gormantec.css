@@ -329,6 +329,7 @@ td.gs-grid
 	border-color: #138a72;
 	border-width: 1px;
 	padding:6px;
+	margin-top:4px;
 	cursor: pointer;
 }
 .square-button:hover
