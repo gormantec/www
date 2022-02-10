@@ -128,12 +128,12 @@
 	<script>
 		document.querySelector("#submit-button").addEventListener("click", (e) => {
 			console.log(e);
-			var email=""+document.querySelector("#companyEmail").value();
-			var subject="New free web page for: "+document.querySelector("#companyName").value();
-			var description="<p>Company Name: "+document.querySelector("#companyName").value()+"</p>"+
-			"<p>Company ABN: "+document.querySelector("#companyABN").value()+"</p>"+
-			"<p>Company email: "+document.querySelector("#companyEmail").value()+"</p>"+
-			"<p>Company logo: "+document.querySelector("#companyLogo").value()+"</p>";
+			var email=""+document.querySelector("#companyEmail").value;
+			var subject="New free web page for: "+document.querySelector("#companyName").value;
+			var description="<p>Company Name: "+document.querySelector("#companyName").value+"</p>"+
+			"<p>Company ABN: "+document.querySelector("#companyABN").value+"</p>"+
+			"<p>Company email: "+document.querySelector("#companyEmail").value+"</p>"+
+			"<p>Company logo: "+document.querySelector("#companyLogo").value+"</p>";
 			document.querySelector("#submit-form").style.display= "none";
 			document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&helpdesk_ticket[email]="+email+"&helpdesk_ticket[subject]="+subject+"&helpdesk_ticket[description]="+description+"&submitThanks=Thank+you&searchArea=no");
 			document.querySelector("#fresh-form").style.display= "block";
