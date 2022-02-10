@@ -126,9 +126,9 @@
 	<script>
 		document.querySelector("#submit-button").addEventListener("click", (e) => {
 			console.log(e);
-			document.querySelector("#submit-form").setAttribute("display", "none");
+			document.querySelector("#submit-form").style.display= "none";
 			document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&formSubject=1111&subject=222&helpdesk_ticket[subject]=444&submitThanks=Thank+you&searchArea=no");
-			document.querySelector("#fresh-form").setAttribute("display", "block");
+			document.querySelector("#fresh-form").style.display= "block";
 		});
 		console.log("done");
 	</script>
