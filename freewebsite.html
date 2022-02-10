@@ -98,7 +98,7 @@
 							</tr>
 							<tr>
 								<td style="border-style:none">&nbsp;</td>
-								<td style="border-style:none"><button id="submit_button" type="button">Submit</button>
+								<td style="border-style:none"><button id="submit-button" type="button">Submit</button>
 								</td>
 							</tr>
 						</table>
@@ -124,7 +124,8 @@
 		integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 	<script src="/basicpage/basic_page.js" type="text/javascript"></script>
 	<script>
-		document.querySelector("#submit_button").addEventListener("click", () => {
+		document.querySelector("#submit-button").addEventListener("click", (e) => {
+			console.log(e);
 			document.querySelector("#submit-form").setAttribute("display", "none");
 			document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&formSubject=1111&subject=222&helpdesk_ticket[subject]=444&submitThanks=Thank+you&searchArea=no");
 			document.querySelector("#fresh-form").setAttribute("display", "block");
