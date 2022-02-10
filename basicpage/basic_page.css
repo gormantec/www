@@ -24,6 +24,12 @@
 	-o-user-select: none;
 	user-select: none;
 }
+#innerImage{
+
+	max-width:520px;
+	margin:auto;
+}
+
 
 #container {
 	background: #d2d2d2; /*Sample*/
@@ -67,9 +73,6 @@ a {
 	position: absolute;
 	top:40%;
 	width: 100%;
-	max-width: 500px;
-	margin-left:auto;
-	margin-right:auto;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
