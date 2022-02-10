@@ -24,12 +24,6 @@
 	-o-user-select: none;
 	user-select: none;
 }
-#innerImage{
-
-	max-width:520px;
-	margin:auto;
-}
-
 
 #container {
 	background: #d2d2d2; /*Sample*/
