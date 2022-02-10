@@ -142,6 +142,7 @@
 				}
 				document.querySelector("#submit-form").style.display = "none";
 				document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&helpdesk_ticket[email]=" + email + "&helpdesk_ticket[subject]=" + subject + "&helpdesk_ticket[description]=" + description + "&submitThanks=Thank+you&searchArea=no");
+				document.querySelector("#maincontent").style.top = "10%";
 				document.querySelector("#fresh-form").style.display = "block";
 			};
 			var files = document.querySelector('input#companyLogo').files;
@@ -150,7 +151,6 @@
 				var reader = new FileReader(); // Creating reader instance from FileReader() API
 				reader.addEventListener("load", function () { // Setting up base64 URL on image
 					console.log(reader.result);
-
 					updateForm(reader.result);
 				}, false);
 				reader.readAsDataURL(file); // Converting file into data URL
