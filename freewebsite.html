@@ -128,6 +128,12 @@
 	<script>
 		document.querySelector("#submit-button").addEventListener("click", (e) => {
 			console.log(e);
+			var file = document.querySelector('input#companyLogo').files[0];  // File refrence
+			var reader = new FileReader(); // Creating reader instance from FileReader() API
+			reader.addEventListener("load", function () { // Setting up base64 URL on image
+				console.log(reader.result);
+			}, false);
+			reader.readAsDataURL(file); // Converting file into data URL
 			var email=""+document.querySelector("#companyEmail").value;
 			var subject="New free web page for: "+document.querySelector("#companyName").value;
 			var description="<p>Company Name: "+document.querySelector("#companyName").value+"</p>"+
