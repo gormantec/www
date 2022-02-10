@@ -138,7 +138,7 @@
 					"<p>Company email: " + document.querySelector("#companyEmail").value + "</p>";
 
 				if (filedata) {
-					description = description + "<p>Company logo: " + document.querySelector("#companyLogo").value + "</p><p><img width=100 src=\"" + filedata + "\"></p>";
+					//description = description + "<p>Company logo: " + document.querySelector("#companyLogo").value + "</p><p><img width=100 src=\"" + filedata + "\"></p>";
 				}
 				document.querySelector("#submit-form").style.display = "none";
 				document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&helpdesk_ticket[email]=" + email + "&helpdesk_ticket[subject]=" + subject + "&helpdesk_ticket[description]=" + description + "&submitThanks=Thank+you&searchArea=no");
