@@ -65,7 +65,7 @@
 			<div id="maincontent" unselectable="on">
 				<div id="innerImage">
 					<center>
-		
+
 						<div>
 							<div class="banner-logo"></div>
 							<div class="banner-title-cell">
@@ -76,47 +76,49 @@
 						<p style="max-width:500px;font-size:small;text-align:justify"><b>Free website</b>: Gorman
 							Technology can provide simple, crisp, clean business home pages for free, or a minor fee to
 							remove our branding. Minor changes can be commissioned for an hourly fee.</p>
-			
-					<br />
-					<br />
-					<div id="submit-form">
-						<table style="border-style:none;font-size:small">
-							<tr>
-								<td style="border-style:none">Company Name</td>
-								<td style="border-style:none"><input id="companyName"/></td>
-							</tr>
-							<tr>
-								<td style="border-style:none">Company ABN</td>
-								<td style="border-style:none"><input id="companyABN"/></td>
-							</tr>
-							<tr>
-								<td style="border-style:none">Company email</td>
-								<td style="border-style:none"><input id="companyEmail"/></td>
-							</tr>
-							<tr>
-								<td style="border-style:none">Company logo</td>
-								<td style="border-style:none"><input type="file" id="companyLogo"/></td>
-							</tr>
-							<tr>
-								<td style="border-style:none">&nbsp;</td>
-								<td style="border-style:none"><button id="submit-button" type="button">Submit</button>
-								</td>
-							</tr>
-						</table>
-					</div>
-					<div id="fresh-form" style="max-width:500px;display:none">
-						<script type="text/javascript"
-							src="https://s3.amazonaws.com/assets.freshdesk.com/widget/freshwidget.js"></script>
-						<style type="text/css" media="screen, projection">
-							@import url(https://s3.amazonaws.com/assets.freshdesk.com/widget/freshwidget.css);
-						</style>
 
-						<iframe title="Feedback Form" class="freshwidget-embedded-form" id="freshwidget-embedded-form"
-							src="https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&formSubject=1111&subject=222&helpdesk_ticket[subject]=333&submitThanks=Thank+you&searchArea=no"
-							scrolling="no" height="400px" width="100%" frameborder="0">
-						</iframe>
-					</div>
-				</center>
+						<br />
+						<br />
+						<div id="submit-form">
+							<table style="border-style:none;font-size:small">
+								<tr>
+									<td style="border-style:none">Company Name</td>
+									<td style="border-style:none"><input id="companyName" /></td>
+								</tr>
+								<tr>
+									<td style="border-style:none">Company ABN</td>
+									<td style="border-style:none"><input id="companyABN" /></td>
+								</tr>
+								<tr>
+									<td style="border-style:none">Company email</td>
+									<td style="border-style:none"><input id="companyEmail" /></td>
+								</tr>
+								<tr>
+									<td style="border-style:none">Company logo</td>
+									<td style="border-style:none"><input type="file" id="companyLogo" /></td>
+								</tr>
+								<tr>
+									<td style="border-style:none">&nbsp;</td>
+									<td style="border-style:none"><button id="submit-button"
+											type="button">Submit</button>
+									</td>
+								</tr>
+							</table>
+						</div>
+						<div id="fresh-form" style="max-width:500px;display:none">
+							<script type="text/javascript"
+								src="https://s3.amazonaws.com/assets.freshdesk.com/widget/freshwidget.js"></script>
+							<style type="text/css" media="screen, projection">
+								@import url(https://s3.amazonaws.com/assets.freshdesk.com/widget/freshwidget.css);
+							</style>
+
+							<iframe title="Feedback Form" class="freshwidget-embedded-form"
+								id="freshwidget-embedded-form"
+								src="https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&formSubject=1111&subject=222&helpdesk_ticket[subject]=333&submitThanks=Thank+you&searchArea=no"
+								scrolling="no" height="400px" width="100%" frameborder="0">
+							</iframe>
+						</div>
+					</center>
 				</div>
 			</div>
 			<div id="details" unselectable="on"></div>
@@ -128,22 +130,35 @@
 	<script>
 		document.querySelector("#submit-button").addEventListener("click", (e) => {
 			console.log(e);
-			var file = document.querySelector('input#companyLogo').files[0];  // File refrence
-			var reader = new FileReader(); // Creating reader instance from FileReader() API
-			reader.addEventListener("load", function () { // Setting up base64 URL on image
-				console.log(reader.result);
-				
-				var email=""+document.querySelector("#companyEmail").value;
-				var subject="Create a free web page for: "+document.querySelector("#companyName").value;
-				var description="<p>Company Name: "+document.querySelector("#companyName").value+"</p>"+
-				"<p>Company ABN: "+document.querySelector("#companyABN").value+"</p>"+
-				"<p>Company email: "+document.querySelector("#companyEmail").value+"</p>"+
-				"<p>Company logo: "+document.querySelector("#companyLogo").value+"</p><p><img width=100 src=\""+reader.result+"\"></p>";
-				document.querySelector("#submit-form").style.display= "none";
-				document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&helpdesk_ticket[email]="+email+"&helpdesk_ticket[subject]="+subject+"&helpdesk_ticket[description]="+description+"&submitThanks=Thank+you&searchArea=no");
-				document.querySelector("#fresh-form").style.display= "block";
-			}, false);
-			reader.readAsDataURL(file); // Converting file into data URL
+			var updateForm = (filedata) => {
+				var email = "" + document.querySelector("#companyEmail").value;
+				var subject = "Create a free web page for: " + document.querySelector("#companyName").value;
+				var description = "<p>Company Name: " + document.querySelector("#companyName").value + "</p>" +
+					"<p>Company ABN: " + document.querySelector("#companyABN").value + "</p>" +
+					"<p>Company email: " + document.querySelector("#companyEmail").value + "</p>";
+
+					if(filedata){
+						description=description+"<p>Company logo: " + document.querySelector("#companyLogo").value + "</p><p><img width=100 src=\"" + filedata + "\"></p>";
+					}
+				document.querySelector("#submit-form").style.display = "none";
+				document.querySelector("#freshwidget-embedded-form").setAttribute("src", "https://gormantec.freshdesk.com/widgets/feedback_widget/new?&widgetType=embedded&formTitle=Create+a+Request&submitTitle=Send&helpdesk_ticket[email]=" + email + "&helpdesk_ticket[subject]=" + subject + "&helpdesk_ticket[description]=" + description + "&submitThanks=Thank+you&searchArea=no");
+				document.querySelector("#fresh-form").style.display = "block";
+			};
+			var files = document.querySelector('input#companyLogo').files;
+			if (files && files.length > 0) {
+				var file = document.querySelector('input#companyLogo').files[0];  // File refrence
+				var reader = new FileReader(); // Creating reader instance from FileReader() API
+				reader.addEventListener("load", function () { // Setting up base64 URL on image
+					console.log(reader.result);
+
+					updateForm(reader.result);
+				}, false);
+				reader.readAsDataURL(file); // Converting file into data URL
+			}
+			else{
+				updateForm();
+			}
+
 
 		});
 		console.log("done");
