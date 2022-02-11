@@ -147,19 +147,10 @@
 				document.querySelector("#maincontent").style.top = "160px";
 				document.querySelector("#fresh-form").style.display = "block";
 			};
-			var files = document.querySelector('input#companyLogo').files;
-			if (files && files.length > 0) {
-				var file = document.querySelector('input#companyLogo').files[0];  // File refrence
-				var reader = new FileReader(); // Creating reader instance from FileReader() API
-				reader.addEventListener("load", function () { // Setting up base64 URL on image
-					console.log(reader.result);
-					updateForm(reader.result);
-				}, false);
-				reader.readAsDataURL(file); // Converting file into data URL
-			}
-			else {
-				updateForm();
-			}
+
+	
+			updateForm();
+			
 
 
 		});
