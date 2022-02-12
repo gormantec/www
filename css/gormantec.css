@@ -400,13 +400,25 @@ td.gs-grid
 and (min-device-width : 320px) 
 and (max-device-width : 640px) {
 	
-.banner-title
-{
-	font-weight: 500;
-	font-size: 22px;
-}
-#loginButton 
-{
-	display:none;
-}
+	.banner-title
+	{
+		font-weight: 500;
+		font-size: 22px;
+	}
+	#loginButton 
+	{
+		display:none;
+	}
+	#maincontent
+	{
+		top:20px;
+	}
+	#maincontent
+	{
+		top:20px;
+	}
+	#innerImage
+	{
+		top:20px;
+	}
 }
