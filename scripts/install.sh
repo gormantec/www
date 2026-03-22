@@ -186,8 +186,6 @@ else
   warn "Skipping build (--no-build). If the plugin requires compilation, it may not load."
 fi
 
-log "Enabling plugin in OpenClaw..."
-openclaw plugins enable "$PLUGIN_ID" >/dev/null
 
 # If the user is running a workspace-local install (./.openclaw exists), pin trust
 # by adding the plugin id to plugins.allow in the workspace config when possible.
@@ -214,6 +212,9 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
     fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
   ' "$PLUGIN_ID" "$WORKSPACE_CONFIG_JSON"
 fi
+
+log "Enabling plugin in OpenClaw..."
+openclaw plugins enable "$PLUGIN_ID" >/dev/null
 
 if [[ "$NO_RESTART" != "true" ]]; then
   log "Restarting OpenClaw gateway..."
