@@ -196,8 +196,15 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   log "Updating plugins.allow in $WORKSPACE_CONFIG_JSON..."
   node -e '
     const fs = require("fs");
-    const pluginId = process.argv[2];
-    const p = process.argv[3];
+    // Note: when using `node -e`, the first user arg is process.argv[1].
+    const pluginId = process.argv[1];
+    const p = process.argv[2];
+    if (!pluginId) {
+      throw new Error("missing plugin id arg");
+    }
+    if (!p) {
+      throw new Error("missing config path arg");
+    }
     const raw = fs.readFileSync(p, "utf8");
     const cfg = JSON.parse(raw);
     cfg.plugins = cfg.plugins || {};
