@@ -174,8 +174,9 @@ if [[ "$NO_BUILD" != "true" ]]; then
   log "Installing npm dependencies (no lifecycle scripts)..."
   (cd "$INSTALL_DIR" && npm install --ignore-scripts)
 
-  # Optional: build if the plugin defines it
-  if (cd "$INSTALL_DIR" && npm run -s | grep -q "^  build$"); then
+  # Optional: build if the plugin defines it (detect via package.json, not npm output)
+  HAS_BUILD_SCRIPT="$(node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(p.scripts && p.scripts.build ? "yes" : "no");' "$INSTALL_DIR/package.json")"
+  if [[ "$HAS_BUILD_SCRIPT" == "yes" ]]; then
     log "Running build..."
     (cd "$INSTALL_DIR" && npm run build)
   else
@@ -187,6 +188,25 @@ fi
 
 log "Enabling plugin in OpenClaw..."
 openclaw plugins enable "$PLUGIN_ID" >/dev/null
+
+# If the user is running a workspace-local install (./.openclaw exists), pin trust
+# by adding the plugin id to plugins.allow in the workspace config when possible.
+WORKSPACE_CONFIG_JSON="$OPENCLAW_WORKDIR/.openclaw/openclaw.json"
+if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
+  log "Updating plugins.allow in $WORKSPACE_CONFIG_JSON..."
+  node -e '
+    const fs = require("fs");
+    const pluginId = process.argv[2];
+    const p = process.argv[3];
+    const raw = fs.readFileSync(p, "utf8");
+    const cfg = JSON.parse(raw);
+    cfg.plugins = cfg.plugins || {};
+    const allow = Array.isArray(cfg.plugins.allow) ? cfg.plugins.allow : [];
+    if (!allow.includes(pluginId)) allow.push(pluginId);
+    cfg.plugins.allow = allow;
+    fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+  ' "$PLUGIN_ID" "$WORKSPACE_CONFIG_JSON"
+fi
 
 if [[ "$NO_RESTART" != "true" ]]; then
   log "Restarting OpenClaw gateway..."
