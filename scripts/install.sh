@@ -194,7 +194,9 @@ fi
 WORKSPACE_CONFIG_JSON="$OPENCLAW_WORKDIR/.openclaw/openclaw.json"
 if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   log "Updating plugins.allow in $WORKSPACE_CONFIG_JSON..."
-  openclaw config set plugins.allow[] "$PLUGIN_ID"
+  # Get the current length of plugins.allow array, or 0 if not present/array
+  idx=$(jq -r '(.plugins.allow // []) | length' "$WORKSPACE_CONFIG_JSON")
+  openclaw config set "plugins.allow[$idx]" "$PLUGIN_ID"
   echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
 fi
 
