@@ -194,30 +194,16 @@ fi
 WORKSPACE_CONFIG_JSON="$OPENCLAW_WORKDIR/.openclaw/openclaw.json"
 if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   log "Updating plugins.allow in $WORKSPACE_CONFIG_JSON..."
-  node -e '
-    const fs = require("fs");
-    // Note: when using `node -e`, the first user arg is process.argv[1].
-    const pluginId = process.argv[1];
-    const p = process.argv[2];
-    if (!pluginId) {
-      throw new Error("missing plugin id arg");
-    }
-    if (!p) {
-      throw new Error("missing config path arg");
-    }
-    const raw = fs.readFileSync(p, "utf8");
-    const cfg = JSON.parse(raw);
-    cfg.plugins = cfg.plugins || {};
-    const allow = Array.isArray(cfg.plugins.allow) ? cfg.plugins.allow : [];
-    if (!allow.includes(pluginId)) allow.push(pluginId);
-    cfg.plugins.allow = allow;
-    fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
-  ' "$PLUGIN_ID" "$WORKSPACE_CONFIG_JSON"
+  openclaw config set plugins.allow[] "$PLUGIN_ID"
+  echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
 fi
 
 
-# --- Install vboxwebsrv-bridge systemd service (if applicable) ---
-if node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("./package.json","utf8"));process.exit((p.scripts && p.scripts["install:service"]) ? 0 : 1);'; then
+# --- Install systemd service (if applicable) ---
+
+if node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("'"$INSTALL_DIR"'/package.json","utf8"));process.exit((p.scripts && p.scripts["install:service"]) ? 0 : 1);'; then
+  echo "Installing plugin systemd service..."
+  cd $INSTALL_DIR
   npm run install:service
 fi
 
