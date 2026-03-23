@@ -197,6 +197,8 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   # Get the current length of plugins.allow array, or 0 if not present/array
   idx=$(jq -r '(.plugins.allow // []) | length' "$WORKSPACE_CONFIG_JSON")
   openclaw config set "plugins.allow[$idx]" "$PLUGIN_ID"
+  openclaw config set "plugins.entries.$PLUGIN_ID.config" '"{virtualbox":{"bridgeUrl":"http://192.168.8.40:18083"}}'
+  openclaw config set "plugins.entries.$PLUGIN_ID.enabled" true
   echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
 fi
 
