@@ -205,7 +205,7 @@ fi
 
 if node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("'"$INSTALL_DIR"'/package.json","utf8"));process.exit((p.scripts && p.scripts["install:service"]) ? 0 : 1);'; then
   echo "Installing plugin systemd service..."
-  cd $INSTALL_DIR
+  cd "$INSTALL_DIR"
   npm run install:service
 fi
 
