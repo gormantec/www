@@ -8,6 +8,8 @@ set -euo pipefail
 #     bash -s -- --github-token "$GITHUB_TOKEN" --repo <owner/repo> [--ref <ref>]
 #
 # Assumptions:
+# - This script can be shared publicly, but requires a GitHub token with read access to the repo to function.
+# - The repo must contain an OpenClaw plugin with a valid openclaw.plugin.json
 # - Run from /home/openclaw (or your OpenClaw workspace dir)
 # - .openclaw already exists in the current directory
 # - openclaw CLI is installed and on PATH
