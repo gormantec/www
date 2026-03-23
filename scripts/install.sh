@@ -215,6 +215,12 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   ' "$PLUGIN_ID" "$WORKSPACE_CONFIG_JSON"
 fi
 
+
+# --- Install vboxwebsrv-bridge systemd service (if applicable) ---
+if node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("./package.json","utf8"));process.exit((p.scripts && p.scripts["install:service"]) ? 0 : 1);'; then
+  npm run install:service
+fi
+
 log "Enabling plugin in OpenClaw..."
 openclaw plugins enable "$PLUGIN_ID" >/dev/null
 
@@ -226,63 +232,3 @@ else
 fi
 
 log "Done."
-
-# --- Environment variable setup ---
-#
-# The following environment variables are required for the vboxwebsrv-bridge service:
-#
-#   VBOX_URL     - URL of the vboxwebsrv SOAP endpoint (e.g. http://192.168.8.40:18083)
-#   VBOX_USER    - Windows username for vboxwebsrv authentication
-#   VBOX_PASS    - Windows password for vboxwebsrv authentication
-#   PORT         - Port for the bridge to listen on (default: 18084)
-#   TOKEN        - (optional) Secret token for bridge API auth
-#
-# You can set these in /etc/environment, a systemd drop-in, or export them before running the install script.
-#
-# Example (edit values as needed):
-#
-#   export VBOX_URL="http://192.168.8.40:18083"
-#   export VBOX_USER="YOUR_WINDOWS_USER"
-#   export VBOX_PASS="YOUR_WINDOWS_PASS"
-#   export PORT=18084
-#   export TOKEN="your-bridge-token"  # optional
-#
-# For persistent systemd service config, edit /etc/systemd/system/vboxwebsrv-bridge.service after install.
-#
-# The OpenClaw plugin does not require any environment variables, but you must configure the plugin to use the bridge URL and token in openclaw.plugin.json or your OpenClaw config.
-
-# --- Systemd service setup for vboxwebsrv-bridge ---
-if id "openclaw" >/dev/null 2>&1; then
-  BRIDGE_SERVICE_PATH="/etc/systemd/system/vboxwebsrv-bridge.service"
-  BRIDGE_SCRIPT_PATH="$OPENCLAW_WORKDIR/scripts/vboxwebsrv-bridge.mjs"
-  if [[ -f "$BRIDGE_SCRIPT_PATH" ]]; then
-    log "Creating systemd service for vboxwebsrv-bridge as user 'openclaw'..."
-    sudo tee "$BRIDGE_SERVICE_PATH" >/dev/null <<EOF
-[Unit]
-Description=VirtualBox vboxwebsrv-bridge
-After=network.target
-
-[Service]
-Type=simple
-User=openclaw
-WorkingDirectory=$OPENCLAW_WORKDIR
-Environment=VBOX_URL=${VBOX_URL:-http://192.168.8.40:18083}
-Environment=VBOX_USER=${VBOX_USER:-YOUR_WINDOWS_USER}
-Environment=VBOX_PASS=${VBOX_PASS:-YOUR_WINDOWS_PASS}
-Environment=PORT=${PORT:-18084}
-ExecStart=/usr/bin/env node $BRIDGE_SCRIPT_PATH
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    sudo systemctl daemon-reload
-    sudo systemctl enable vboxwebsrv-bridge.service
-    sudo systemctl restart vboxwebsrv-bridge.service
-    log "vboxwebsrv-bridge systemd service installed and started."
-  else
-    warn "vboxwebsrv-bridge.mjs not found; skipping systemd service setup."
-  fi
-else
-  warn "User 'openclaw' does not exist; skipping systemd service setup for vboxwebsrv-bridge."
-fi
