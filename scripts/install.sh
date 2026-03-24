@@ -197,9 +197,13 @@ fi
 WORKSPACE_CONFIG_JSON="$OPENCLAW_WORKDIR/.openclaw/openclaw.json"
 if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   log "Updating plugins.allow in $WORKSPACE_CONFIG_JSON..."
-  # Get the current length of plugins.allow array, or 0 if not present/array
-  idx=$(jq -r '(.plugins.allow // []) | length' "$WORKSPACE_CONFIG_JSON")
-  openclaw config set "plugins.allow[$idx]" "$PLUGIN_ID"
+  # Only add PLUGIN_ID if not already present in plugins.allow
+  if ! jq -e --arg pid "$PLUGIN_ID" '(.plugins.allow // []) | index($pid)' "$WORKSPACE_CONFIG_JSON" >/dev/null; then
+    idx=$(jq -r '(.plugins.allow // []) | length' "$WORKSPACE_CONFIG_JSON")
+    openclaw config set "plugins.allow[$idx]" "$PLUGIN_ID"
+  else
+    log "$PLUGIN_ID already present in plugins.allow, skipping add."
+  fi
   openclaw config set "plugins.entries.$PLUGIN_ID.config" "$CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.enabled" true
   echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
