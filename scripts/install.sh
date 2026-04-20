@@ -204,6 +204,8 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   else
     log "$PLUGIN_ID already present in plugins.allow, skipping add."
   fi
+  echo "[DEBUG] openclaw config set \"plugins.entries.$PLUGIN_ID.config\" $CONFIG_OVERRIDE"
+  echo "[DEBUG] CONFIG_OVERRIDE raw: $CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.config" "$CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.enabled" true
   echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
