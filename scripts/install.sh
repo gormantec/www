@@ -17,8 +17,6 @@ set -euo pipefail
 
 SCRIPT_NAME="install.sh"
 
-echo "[DEBUG] openclaw plugin install script starting with args: $*"
-
 log() { printf "%s\n" "$*"; }
 warn() { printf "%s\n" "WARN: $*" >&2; }
 die() { printf "%s\n" "ERROR: $*" >&2; exit 1; }
