@@ -81,6 +81,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_DIR_OVERRIDE="${2:-}"; shift 2 ;;
     --config)
       CONFIG_OVERRIDE="${2:-}"; shift 2 ;;
+    --config-b64)
+      # Accept base64-encoded JSON to avoid shell quoting issues when the
+      # caller cannot safely quote JSON across nested shells / pipelines.
+      CONFIG_OVERRIDE="$(printf '%s' "$2" | base64 --decode)"; shift 2 ;;
     --no-build)
       NO_BUILD="true"; shift 1 ;;
     --no-restart)
@@ -206,7 +210,26 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
   else
     log "$PLUGIN_ID already present in plugins.allow, skipping add."
   fi
-  echo "[DEBUG] openclaw config set \"plugins.entries.$PLUGIN_ID.config\" $CONFIG_OVERRIDE"
+  # Normalize and validate CONFIG_OVERRIDE. If the value isn't valid JSON,
+  # attempt to decode it from base64 (callers can use --config-b64).
+  if [[ -n "$CONFIG_OVERRIDE" ]]; then
+    if ! printf '%s' "$CONFIG_OVERRIDE" | jq -e . >/dev/null 2>&1; then
+      # Try base64 decode fallback (harmless if not base64)
+      if DECODED=$(printf '%s' "$CONFIG_OVERRIDE" | base64 --decode 2>/dev/null); then
+        if printf '%s' "$DECODED" | jq -e . >/dev/null 2>&1; then
+          CONFIG_OVERRIDE="$DECODED"
+          warn "CONFIG_OVERRIDE appeared base64-encoded; decoded for use"
+        else
+          warn "CONFIG_OVERRIDE not valid JSON even after base64 decode; proceeding as-is"
+        fi
+      else
+        warn "CONFIG_OVERRIDE not valid JSON and not base64; proceeding as-is"
+      fi
+    fi
+  fi
+
+  echo "[DEBUG] openclaw config set \"plugins.entries.$PLUGIN_ID.config\" (len=$(printf '%s' \"$CONFIG_OVERRIDE\" | wc -c))"
+  echo "[DEBUG] CONFIG_OVERRIDE valid_json: $(printf '%s' "$CONFIG_OVERRIDE" | jq -e . >/dev/null 2>&1 && echo yes || echo no)"
   echo "[DEBUG] CONFIG_OVERRIDE raw: $CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.config" "$CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.enabled" true
