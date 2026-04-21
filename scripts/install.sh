@@ -226,9 +226,7 @@ if [[ -f "$WORKSPACE_CONFIG_JSON" ]]; then
     fi
   fi
 
-  echo "[DEBUG] openclaw config set \"plugins.entries.$PLUGIN_ID.config\" (len=$(printf '%s' \"$CONFIG_OVERRIDE\" | wc -c))"
-  echo "[DEBUG] CONFIG_OVERRIDE valid_json: $(printf '%s' "$CONFIG_OVERRIDE" | jq -e . >/dev/null 2>&1 && echo yes || echo no)"
-  echo "[DEBUG] CONFIG_OVERRIDE raw: $CONFIG_OVERRIDE"
+
   openclaw config set "plugins.entries.$PLUGIN_ID.config" "$CONFIG_OVERRIDE"
   openclaw config set "plugins.entries.$PLUGIN_ID.enabled" true
   echo "Updated plugins.allow in workspace config to include $PLUGIN_ID"
