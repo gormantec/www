@@ -241,6 +241,7 @@ if node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("'"$INSTAL
   npm run install:service
 fi
 
+sleep 4 # Give the systemd service a moment to register if it was installed
 log "Enabling plugin in OpenClaw..."
 openclaw plugins enable "$PLUGIN_ID" >/dev/null
 
