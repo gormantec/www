@@ -104,6 +104,22 @@ json_get_value() {
     '
 }
 
+sanitize_loaded_default() {
+    key="$1"
+    value="$2"
+    placeholder_plain="\$$key"
+    placeholder_braced="\${$key}"
+
+    case "$value" in
+        ""|"null"|"undefined"|"$key"|"$placeholder_plain"|"$placeholder_braced")
+            echo ""
+            ;;
+        *)
+            echo "$value"
+            ;;
+    esac
+}
+
 load_existing_env() {
     ENV_JSON=""
     env_file="/usr/src/app/data/env.json"
@@ -223,6 +239,22 @@ DOCDB_NAS_SERVER_DEFAULT="$(json_get_value 'DOCDB_NAS_SERVER')"
 DOCDB_NAS_ROOT_DEFAULT="$(json_get_value 'DOCDB_NAS_ROOT')"
 DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
 DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
+
+TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
+GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
+NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
+ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAULT")"
+GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
+GITHUB_USERNAME_DEFAULT="$(sanitize_loaded_default 'GITHUB_USERNAME' "$GITHUB_USERNAME_DEFAULT")"
+LAMBDA_NETWORK_DEFAULT="$(sanitize_loaded_default 'LAMBDA_NETWORK' "$LAMBDA_NETWORK_DEFAULT")"
+IMAGE_NAME_DEFAULT="$(sanitize_loaded_default 'IMAGE_NAME' "$IMAGE_NAME_DEFAULT")"
+MQTT_HOST_DEFAULT="$(sanitize_loaded_default 'MQTT_HOST' "$MQTT_HOST_DEFAULT")"
+MQTT_PORT_DEFAULT="$(sanitize_loaded_default 'MQTT_PORT' "$MQTT_PORT_DEFAULT")"
+HTTP_PORT_DEFAULT="$(sanitize_loaded_default 'HTTP_PORT' "$HTTP_PORT_DEFAULT")"
+DOCDB_NAS_SERVER_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_SERVER' "$DOCDB_NAS_SERVER_DEFAULT")"
+DOCDB_NAS_ROOT_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_ROOT' "$DOCDB_NAS_ROOT_DEFAULT")"
+DOCDB_NAS_PROTOCOL_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PROTOCOL' "$DOCDB_NAS_PROTOCOL_DEFAULT")"
+DOCDB_NAS_USERNAME_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_USERNAME' "$DOCDB_NAS_USERNAME_DEFAULT")"
 
 if [ -z "$GATEKEEPER_SECRET_DEFAULT" ]; then
     GATEKEEPER_SECRET_DEFAULT=$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c64)
