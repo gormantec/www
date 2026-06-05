@@ -395,6 +395,24 @@ extract_compose_yaml_from_image() {
 echo ""
 echo "  Deploying docker-iot stack..."
 
+# Export compose environment variables for docker stack deploy/docker compose
+# These values are substituted by the compose file at deploy time.
+echo "  Exporting compose environment variables..."
+export TUNNEL_TOKEN
+export ROOT_DOMAIN
+export MQTT_HOST
+export MQTT_PORT
+export HTTP_PORT
+export GATEKEEPER_SECRET
+export READ_PACKAGES_GITHUB_PAT
+export GITHUB_USERNAME
+export LAMBDA_NETWORK
+export DOCDB_NAS_SERVER
+export DOCDB_NAS_ROOT
+export DOCDB_NAS_PROTOCOL
+export DOCDB_NAS_USERNAME
+export DOCDB_NAS_PASSWORD
+
 # Create overlay network for Lambda/ECS
 if ! docker network ls --format '{{.Name}}' | grep -q "^${LAMBDA_NETWORK}$"; then
     docker network create --driver overlay --attachable "$LAMBDA_NETWORK" 2>/dev/null || true
