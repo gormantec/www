@@ -92,13 +92,13 @@ already() {
 }
 
 json_get_value() {
-    local key="$1"
+    key="$1"
     printf '%s' "$ENV_JSON" | grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^"]*\"" | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
 }
 
 load_existing_env() {
     ENV_JSON=""
-    local env_file="/usr/src/app/data/env.json"
+    env_file="/usr/src/app/data/env.json"
     if [ -f "$env_file" ]; then
         ENV_JSON="$(cat "$env_file")"
         return
