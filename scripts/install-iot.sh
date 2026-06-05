@@ -46,11 +46,11 @@ else
 fi
 
 ask() {
-    local prompt="$1"
-    local default="$2"
-    local secret="$3"
-    local value
-    local display_default
+    prompt="$1"
+    default="$2"
+    secret="$3"
+    value=""
+    display_default=""
 
     if [ -n "$default" ]; then
         if [ "$secret" = "secret" ]; then
@@ -226,7 +226,7 @@ echo ""
 
 TUNNEL_TOKEN=""
 while [ -z "$TUNNEL_TOKEN" ]; do
-    TUNNEL_TOKEN=$(ask "Cloudflare Tunnel token" "" "secret")
+    TUNNEL_TOKEN=$(ask "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT" "secret")
     if [ -z "$TUNNEL_TOKEN" ]; then
         echo "  ${RED}⚠  Tunnel token is required${NC}"
     fi
@@ -234,7 +234,7 @@ done
 
 GITHUB_PAT=""
 while [ -z "$GITHUB_PAT" ]; do
-    GITHUB_PAT=$(ask "GitHub PAT (read:packages)" "" "secret")
+    GITHUB_PAT=$(ask "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT" "secret")
     if [ -z "$GITHUB_PAT" ]; then
         echo "  ${RED}⚠  GitHub PAT is required${NC}"
     fi
@@ -242,22 +242,22 @@ done
 
 NAS_PASSWORD=""
 while [ -z "$NAS_PASSWORD" ]; do
-    NAS_PASSWORD=$(ask "NAS password" "" "secret")
+    NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
     if [ -z "$NAS_PASSWORD" ]; then
         echo "  ${RED}⚠  NAS password is required${NC}"
     fi
 done
 
 echo ""
-ROOT_DOMAIN=$(ask "Root domain" "gormantec.com")
+ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
 GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret")
-GITHUB_USERNAME=$(ask "GitHub username" "gormantec")
-LAMBDA_NETWORK=$(ask "Lambda/ECS network" "iot-default-net")
-IMAGE_NAME=$(ask "Docker image name" "gormantec/docker-iot")
-DOCDB_NAS_SERVER=$(ask "NAS server hostname" "synologynas.local")
-DOCDB_NAS_ROOT=$(ask "NAS share root path" "/docker-iot/docker-share")
-DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "cifs")
-DOCDB_NAS_USERNAME=$(ask "NAS username" "docker-iot")
+GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
+LAMBDA_NETWORK=$(ask "Lambda/ECS network" "${LAMBDA_NETWORK_DEFAULT:-iot-default-net}")
+IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
+DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
+DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
+DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
+DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
 
 # ── 6. Deploy docker-iot ────────────────────────────────────────
 echo ""
