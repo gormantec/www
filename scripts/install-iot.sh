@@ -65,7 +65,11 @@ ask() {
         if [ -t "$PROMPT_FD" ]; then
             stty echo <&$PROMPT_FD 2>/dev/null || true
         fi
-        printf "\n" >&$PROMPT_FD
+        if [ -n "$value" ]; then
+            printf "\r${CYAN}%s:%s ${NC}%s\n" "$prompt" "" "*****" >&$PROMPT_FD
+        else
+            printf "\n" >&$PROMPT_FD
+        fi
     else
         read -r value <&$PROMPT_FD
     fi
