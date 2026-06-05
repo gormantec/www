@@ -291,15 +291,38 @@ DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-io
 DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
 DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
 
+mask_secret() {
+    printf '%s\n' "$1" | sed -E 's/^(.{6}).*(.{4})$/\1***************************\2/'
+}
+
+test_github_pat() {
+    masked_pat=$(mask_secret "$GITHUB_PAT")
+    echo "  Connecting to GitHub with PAT=\"$masked_pat\""
+    login_output=$(printf '%s\n' "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin 2>&1)
+    login_status=$?
+    if [ "$login_status" -eq 0 ]; then
+        echo "  ${GREEN}✓${NC} GitHub connection successful"
+        return 0
+    fi
+    echo "  ${RED}✗${NC} GitHub PAT validation failed"
+    printf '    %s\n' "$login_output"
+    return 1
+}
+
 # ── 6. Deploy docker-iot ────────────────────────────────────────
 echo ""
 echo "${CYAN}── 6. Deploy docker-iot${NC}"
 
+# Validate GitHub PAT before pulling image
+if ! test_github_pat; then
+    echo "  ${YELLOW}⚠${NC}  GitHub PAT validation failed. Image pull may also fail."
+fi
+
 # Pull image
 echo "  Pulling ${IMAGE_REF}..."
-if docker pull "${IMAGE_REF}" >/dev/null 2>&1; then
+if docker pull "${IMAGE_REF}"; then
     :
-elif [ "${IMAGE_REF#ghcr.io/}" != "$IMAGE_REF" ] && docker_login_ghcr >/dev/null 2>&1 && docker pull "${IMAGE_REF}" >/dev/null 2>&1; then
+elif [ "${IMAGE_REF#ghcr.io/}" != "$IMAGE_REF" ] && docker_login_ghcr && docker pull "${IMAGE_REF}"; then
     :
 else
     echo "  ${YELLOW}⚠${NC}  Could not pull image (check image name, GitHub PAT, GitHub username, and network)"
