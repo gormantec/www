@@ -216,6 +216,9 @@ GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
 GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
 LAMBDA_NETWORK_DEFAULT="$(json_get_value 'LAMBDA_NETWORK')"
 IMAGE_NAME_DEFAULT="$(json_get_value 'IMAGE_NAME')"
+MQTT_HOST_DEFAULT="$(json_get_value 'MQTT_HOST')"
+MQTT_PORT_DEFAULT="$(json_get_value 'MQTT_PORT')"
+HTTP_PORT_DEFAULT="$(json_get_value 'HTTP_PORT')"
 DOCDB_NAS_SERVER_DEFAULT="$(json_get_value 'DOCDB_NAS_SERVER')"
 DOCDB_NAS_ROOT_DEFAULT="$(json_get_value 'DOCDB_NAS_ROOT')"
 DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
@@ -260,8 +263,12 @@ echo ""
 ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
 GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret")
 GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
+MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-localhost}")
+MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-1883}")
+HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-3000}")
 LAMBDA_NETWORK=$(ask "Lambda/ECS network" "${LAMBDA_NETWORK_DEFAULT:-iot-default-net}")
 IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
+READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
 
 normalize_image_reference() {
     name="$1"
