@@ -52,9 +52,9 @@ ask() {
     local value
 
     if [ -n "$default" ]; then
-        printf "${CYAN}%s [%s]:${NC} " "$prompt" "$default"
+        printf "${CYAN}%s [%s]:${NC} " "$prompt" "$default" >&$PROMPT_FD
     else
-        printf "${CYAN}%s:${NC} " "$prompt"
+        printf "${CYAN}%s:${NC} " "$prompt" >&$PROMPT_FD
     fi
 
     if [ "$secret" = "secret" ]; then
@@ -65,7 +65,7 @@ ask() {
         if [ -t "$PROMPT_FD" ]; then
             stty echo <&$PROMPT_FD 2>/dev/null || true
         fi
-        echo ""
+        printf "\n" >&$PROMPT_FD
     else
         read -r value <&$PROMPT_FD
     fi
