@@ -263,9 +263,10 @@ echo ""
 ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
 GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret")
 GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
-MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-localhost}")
-MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-1883}")
-HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-3000}")
+MQTT_HOST_DEFAULT2="mqtt.$ROOT_DOMAIN"
+MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-$MQTT_HOST_DEFAULT2}")
+MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-8883}")
+HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
 LAMBDA_NETWORK=$(ask "Lambda/ECS network" "${LAMBDA_NETWORK_DEFAULT:-iot-default-net}")
 IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
 READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
