@@ -93,7 +93,15 @@ already() {
 
 json_get_value() {
     key="$1"
-    printf '%s' "$ENV_JSON" | grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^"]*\"" | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
+    printf '%s\n' "$ENV_JSON" | awk -v k="\"$key\"" '
+        index($0, k) {
+            line=$0
+            sub(/.*:[[:space:]]*"/, "", line)
+            sub(/".*/, "", line)
+            print line
+            exit
+        }
+    '
 }
 
 load_existing_env() {
