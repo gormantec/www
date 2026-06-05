@@ -262,6 +262,30 @@ GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret
 GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
 LAMBDA_NETWORK=$(ask "Lambda/ECS network" "${LAMBDA_NETWORK_DEFAULT:-iot-default-net}")
 IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
+
+normalize_image_reference() {
+    name="$1"
+    case "$name" in
+        *.*/*|*:*/*|localhost/*)
+            prefix="$name"
+            ;;
+        *)
+            prefix="ghcr.io/$name"
+            ;;
+    esac
+
+    last_component=${prefix##*/}
+    case "$last_component" in
+        *@*|*:* )
+            printf '%s' "$prefix"
+            ;;
+        *)
+            printf '%s:latest' "$prefix"
+            ;;
+    esac
+}
+
+IMAGE_REF="$(normalize_image_reference "$IMAGE_NAME")"
 DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
 DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
 DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
@@ -272,11 +296,15 @@ echo ""
 echo "${CYAN}── 6. Deploy docker-iot${NC}"
 
 # Pull image
-echo "  Pulling ${IMAGE_NAME}:latest..."
-docker pull "${IMAGE_NAME}:latest" 2>/dev/null || {
-    echo "  ${YELLOW}⚠${NC}  Could not pull image (check GitHub PAT and network)"
+echo "  Pulling ${IMAGE_REF}..."
+if docker pull "${IMAGE_REF}" >/dev/null 2>&1; then
+    :
+elif [ "${IMAGE_REF#ghcr.io/}" != "$IMAGE_REF" ] && docker_login_ghcr >/dev/null 2>&1 && docker pull "${IMAGE_REF}" >/dev/null 2>&1; then
+    :
+else
+    echo "  ${YELLOW}⚠${NC}  Could not pull image (check image name, GitHub PAT, GitHub username, and network)"
     echo "  Image will be pulled on first stack deploy."
-}
+fi
 
 # Create env.json in the Docker named volume used by the service.
 # This ensures the container sees it at /usr/src/app/data/env.json.
@@ -308,6 +336,16 @@ echo "  ${GREEN}✓${NC} env.json written to volume '$VOLUME_NAME'"
 
 echo "  ${YELLOW}⚠${NC}  env.json is still required until tenant secrets are confirmed in Secrets Manager"
 
+# ── Helper: GitHub Packages login ─────────────────────────────────
+docker_login_ghcr() {
+    if [ -n "$GITHUB_PAT" ] && [ -n "$GITHUB_USERNAME" ]; then
+        if printf '%s\n' "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # ── Deploy the stack ────────────────────────────────────────────
 echo ""
 echo "  Deploying docker-iot stack..."
@@ -326,7 +364,7 @@ COMPOSE_DIR="/opt/docker-iot"
 mkdir -p "$COMPOSE_DIR"
 
 # Extract compose.yaml from the image
-docker run --rm --entrypoint cat "${IMAGE_NAME}:latest" /usr/src/app/compose.yaml > "$COMPOSE_DIR/compose.yaml" 2>/dev/null || true
+docker run --rm --entrypoint cat "${IMAGE_REF}" /usr/src/app/compose.yaml > "$COMPOSE_DIR/compose.yaml" 2>/dev/null || true
 
 if [ ! -s "$COMPOSE_DIR/compose.yaml" ]; then
     # Fallback: use the installer's own compose.yaml if bundled
