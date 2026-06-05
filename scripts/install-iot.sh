@@ -369,6 +369,28 @@ docker_login_ghcr() {
     return 1
 }
 
+extract_compose_yaml_from_image() {
+    local image="$1"
+    local out="$2"
+    local container
+    container=$(docker create "$image" /bin/sh 2>/dev/null) || return 1
+    if [ -z "$container" ]; then
+        return 1
+    fi
+
+    local result=1
+    local paths="/usr/src/app/compose.yaml /usr/src/app/docker-compose.yaml /compose.yaml /app/compose.yaml /docker-compose.yml /docker-compose.yaml /usr/src/app/docker-compose.yml"
+    for path in $paths; do
+        if docker cp "$container":"$path" "$out" >/dev/null 2>&1; then
+            result=0
+            break
+        fi
+    done
+
+    docker rm -v "$container" >/dev/null 2>&1 || true
+    return $result
+}
+
 # ── Deploy the stack ────────────────────────────────────────────
 echo ""
 echo "  Deploying docker-iot stack..."
@@ -382,25 +404,30 @@ else
 fi
 
 # Deploy using compose.yaml from the image, with env.json bind mount
-# We use docker run first to extract the compose.yaml, then deploy as a stack
 COMPOSE_DIR="/opt/docker-iot"
 mkdir -p "$COMPOSE_DIR"
+COMPOSE_FILE="$COMPOSE_DIR/compose.yaml"
 
-# Extract compose.yaml from the image
-docker run --rm --entrypoint cat "${IMAGE_REF}" /usr/src/app/compose.yaml > "$COMPOSE_DIR/compose.yaml" 2>/dev/null || true
-
-if [ ! -s "$COMPOSE_DIR/compose.yaml" ]; then
-    # Fallback: use the installer's own compose.yaml if bundled
-    echo "  ${YELLOW}⚠${NC}  Could not extract compose.yaml from image"
+if extract_compose_yaml_from_image "$IMAGE_REF" "$COMPOSE_FILE"; then
+    echo "  ${GREEN}✓${NC} compose.yaml extracted from image"
+else
+    echo "  ${RED}✗${NC} Could not extract compose.yaml from image"
+    echo "    Checked candidate paths: /usr/src/app/compose.yaml /usr/src/app/docker-compose.yaml /compose.yaml /app/compose.yaml /docker-compose.yml /docker-compose.yaml /usr/src/app/docker-compose.yml"
 fi
 
-# Deploy as Swarm stack
-docker stack deploy -c "$COMPOSE_DIR/compose.yaml" docker-iot 2>/dev/null || {
-    # If stack deploy fails, fall back to docker-compose
-    echo "  ${YELLOW}⚠${NC}  Stack deploy failed — trying docker compose..."
-    docker compose -f "$COMPOSE_DIR/compose.yaml" up -d 2>/dev/null || true
-}
-echo "  ${GREEN}✓${NC} Stack deployed"
+if [ ! -s "$COMPOSE_FILE" ]; then
+    echo "  ${RED}✗${NC} No compose file available for deployment"
+    exit 1
+fi
+
+if docker stack deploy -c "$COMPOSE_FILE" docker-iot; then
+    echo "  ${GREEN}✓${NC} Stack deployed"
+elif docker compose -f "$COMPOSE_FILE" up -d; then
+    echo "  ${GREEN}✓${NC} Stack deployed via docker compose"
+else
+    echo "  ${RED}✗${NC} Stack deployment failed"
+    exit 1
+fi
 
 # ── 7. Verify ────────────────────────────────────────────────────
 echo ""
