@@ -36,6 +36,15 @@ fi
 echo "${GREEN}✓${NC} Alpine Linux $(cat /etc/alpine-release)"
 
 # ── Helper: prompt with default ─────────────────────────────────
+if [ -t 0 ]; then
+    PROMPT_FD=0
+elif [ -r /dev/tty ]; then
+    exec 3</dev/tty
+    PROMPT_FD=3
+else
+    PROMPT_FD=0
+fi
+
 ask() {
     local prompt="$1"
     local default="$2"
@@ -49,12 +58,16 @@ ask() {
     fi
 
     if [ "$secret" = "secret" ]; then
-        stty -echo
-        read -r value
-        stty echo
+        if [ -t "$PROMPT_FD" ]; then
+            stty -echo <&$PROMPT_FD 2>/dev/null || true
+        fi
+        read -r value <&$PROMPT_FD
+        if [ -t "$PROMPT_FD" ]; then
+            stty echo <&$PROMPT_FD 2>/dev/null || true
+        fi
         echo ""
     else
-        read -r value
+        read -r value <&$PROMPT_FD
     fi
 
     if [ -z "$value" ] && [ -n "$default" ]; then
