@@ -65,7 +65,16 @@ echo ""
 echo "${CYAN}── 1. Docker${NC}"
 
 if command -v docker >/dev/null 2>&1; then
-    already "Docker $(docker --version 2>/dev/null | cut -d' ' -f3 | cut -d',' -f1)"
+    if docker info >/dev/null 2>&1; then
+        already "Docker $(docker --version 2>/dev/null | cut -d' ' -f3 | cut -d',' -f1)"
+        already "Docker daemon operational"
+    else
+        echo "  Docker CLI is installed, but daemon is not fully operational. Verifying configuration..."
+        apk add --no-cache docker docker-compose openrc cifs-utils iptables bridge
+        rc-update add docker boot
+        rc-service docker start
+        echo "  ${GREEN}✓${NC} Docker started"
+    fi
     # Ensure runtime deps are present even if Docker was installed without them
     for pkg in cifs-utils iptables bridge; do
         if ! apk info -e "$pkg" >/dev/null 2>&1; then
@@ -88,7 +97,10 @@ echo "${CYAN}── 2. Docker daemon${NC}"
 DAEMON_JSON="/etc/docker/daemon.json"
 if [ -f "$DAEMON_JSON" ]; then
     already "daemon.json exists"
+elif docker info >/dev/null 2>&1; then
+    already "Docker daemon operational (no daemon.json required)"
 else
+    mkdir -p "$(dirname "$DAEMON_JSON")"
     echo '{
   "log-driver": "json-file",
   "log-opts": { "max-size": "10m", "max-file": "3" },
