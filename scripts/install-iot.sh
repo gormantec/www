@@ -50,9 +50,15 @@ ask() {
     local default="$2"
     local secret="$3"
     local value
+    local display_default
 
     if [ -n "$default" ]; then
-        printf "${CYAN}%s [%s]:${NC} " "$prompt" "$default" >&$PROMPT_FD
+        if [ "$secret" = "secret" ]; then
+            display_default="*****"
+        else
+            display_default="$default"
+        fi
+        printf "${CYAN}%s [%s]:${NC} " "$prompt" "$display_default" >&$PROMPT_FD
     else
         printf "${CYAN}%s:${NC} " "$prompt" >&$PROMPT_FD
     fi
@@ -65,8 +71,8 @@ ask() {
         if [ -t "$PROMPT_FD" ]; then
             stty echo <&$PROMPT_FD 2>/dev/null || true
         fi
-        if [ -n "$value" ]; then
-            printf "\r${CYAN}%s:%s ${NC}%s\n" "$prompt" "" "*****" >&$PROMPT_FD
+        if [ -n "$value" ] || [ -n "$default" ]; then
+            printf "*****\n" >&$PROMPT_FD
         else
             printf "\n" >&$PROMPT_FD
         fi
@@ -83,6 +89,23 @@ ask() {
 # ── Helper: check if a step is already done ─────────────────────
 already() {
     echo "  ${YELLOW}⏭${NC}  $1 (already done)"
+}
+
+json_get_value() {
+    local key="$1"
+    printf '%s' "$ENV_JSON" | grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^"]*\"" | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
+}
+
+load_existing_env() {
+    ENV_JSON=""
+    local env_file="/usr/src/app/data/env.json"
+    if [ -f "$env_file" ]; then
+        ENV_JSON="$(cat "$env_file")"
+        return
+    fi
+    if command -v docker >/dev/null 2>&1 && docker volume inspect docker-iot-data >/dev/null 2>&1; then
+        ENV_JSON="$(docker run --rm -i -v docker-iot-data:/data alpine cat /data/env.json 2>/dev/null || true)"
+    fi
 }
 
 # ── 1. Install Docker ───────────────────────────────────────────
@@ -175,14 +198,31 @@ if ! getent group docker >/dev/null 2>&1; then
 fi
 adduser docker docker 2>/dev/null || true
 
+load_existing_env
+
+TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
+GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
+NAS_PASSWORD_DEFAULT="$(json_get_value 'NAS_PASSWORD')"
+ROOT_DOMAIN_DEFAULT="$(json_get_value 'ROOT_DOMAIN')"
+GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
+GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
+LAMBDA_NETWORK_DEFAULT="$(json_get_value 'LAMBDA_NETWORK')"
+IMAGE_NAME_DEFAULT="$(json_get_value 'IMAGE_NAME')"
+DOCDB_NAS_SERVER_DEFAULT="$(json_get_value 'DOCDB_NAS_SERVER')"
+DOCDB_NAS_ROOT_DEFAULT="$(json_get_value 'DOCDB_NAS_ROOT')"
+DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
+DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
+
+if [ -z "$GATEKEEPER_SECRET_DEFAULT" ]; then
+    GATEKEEPER_SECRET_DEFAULT=$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c64)
+fi
+
 # ── 5. Collect secrets ──────────────────────────────────────────
 echo ""
 echo "${CYAN}── 5. Configuration${NC}"
 echo "  Press Enter to accept defaults (shown in brackets)."
 echo "  Required fields (no default) must be filled."
 echo ""
-
-GATEKEEPER_SECRET_DEFAULT=$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c64)
 
 TUNNEL_TOKEN=""
 while [ -z "$TUNNEL_TOKEN" ]; do
