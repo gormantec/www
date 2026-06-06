@@ -50,7 +50,7 @@ ask() {
     default="$2"
     secret="$3"
     value=""
-    display_default=""
+    display_default="-"
 
     if [ -n "$default" ]; then
         if [ "$secret" = "secret" ]; then
@@ -58,10 +58,9 @@ ask() {
         else
             display_default="$default"
         fi
-        printf "${CYAN}%s [%s]:${NC} " "$prompt" "$display_default" >&$PROMPT_FD
-    else
-        printf "${CYAN}%s:${NC} " "$prompt" >&$PROMPT_FD
     fi
+
+    printf "${CYAN}%s [ %s ]:${NC} " "$prompt" "$display_default" >&$PROMPT_FD
 
     if [ "$secret" = "secret" ]; then
         if [ -t "$PROMPT_FD" ]; then
@@ -262,9 +261,6 @@ ROOT_DOMAIN_DEFAULT="$(json_get_value 'ROOT_DOMAIN')"
 GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
 GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
 DEFAULT_NETWORK_DEFAULT="$(json_get_value 'DEFAULT_NETWORK')"
-if [ -z "$DEFAULT_NETWORK_DEFAULT" ]; then
-    DEFAULT_NETWORK_DEFAULT="$(json_get_value 'LAMBDA_NETWORK')"
-fi
 IMAGE_NAME_DEFAULT="$(json_get_value 'IMAGE_NAME')"
 MQTT_HOST_DEFAULT="$(json_get_value 'MQTT_HOST')"
 MQTT_PORT_DEFAULT="$(json_get_value 'MQTT_PORT')"
@@ -282,9 +278,6 @@ ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAU
 GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
 GITHUB_USERNAME_DEFAULT="$(sanitize_loaded_default 'GITHUB_USERNAME' "$GITHUB_USERNAME_DEFAULT")"
 DEFAULT_NETWORK_DEFAULT="$(sanitize_loaded_default 'DEFAULT_NETWORK' "$DEFAULT_NETWORK_DEFAULT")"
-if [ -z "$DEFAULT_NETWORK_DEFAULT" ]; then
-    DEFAULT_NETWORK_DEFAULT="$(sanitize_loaded_default 'LAMBDA_NETWORK' "$(json_get_value 'LAMBDA_NETWORK')")"
-fi
 IMAGE_NAME_DEFAULT="$(sanitize_loaded_default 'IMAGE_NAME' "$IMAGE_NAME_DEFAULT")"
 MQTT_HOST_DEFAULT="$(sanitize_loaded_default 'MQTT_HOST' "$MQTT_HOST_DEFAULT")"
 MQTT_PORT_DEFAULT="$(sanitize_loaded_default 'MQTT_PORT' "$MQTT_PORT_DEFAULT")"
@@ -536,9 +529,6 @@ export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
 export GITHUB_USERNAME
 export DEFAULT_NETWORK
-# Backward compatibility for older compose files still using LAMBDA_NETWORK.
-LAMBDA_NETWORK="$DEFAULT_NETWORK"
-export LAMBDA_NETWORK
 export DOCDB_NAS_SERVER
 export DOCDB_NAS_ROOT
 export DOCDB_NAS_PROTOCOL
