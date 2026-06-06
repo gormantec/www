@@ -250,6 +250,7 @@ load_existing_env
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
+DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
 ROOT_DOMAIN_DEFAULT="$(json_get_value 'ROOT_DOMAIN')"
 GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
 GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
@@ -266,6 +267,7 @@ DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
+DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
 ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAULT")"
 GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
 GITHUB_USERNAME_DEFAULT="$(sanitize_loaded_default 'GITHUB_USERNAME' "$GITHUB_USERNAME_DEFAULT")"
@@ -311,6 +313,14 @@ while [ -z "$NAS_PASSWORD" ]; do
     NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
     if [ -z "$NAS_PASSWORD" ]; then
         echo "  ${RED}⚠  NAS password is required${NC}"
+    fi
+done
+
+DOCDB_IOT_PASS=""
+while [ -z "$DOCDB_IOT_PASS" ]; do
+    DOCDB_IOT_PASS=$(ask "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT" "secret")
+    if [ -z "$DOCDB_IOT_PASS" ]; then
+        echo "  ${RED}⚠  Internal DocDB password is required${NC}"
     fi
 done
 
@@ -413,6 +423,7 @@ docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'cat > /data/env.json' <
     { "Name": "DOCDB_NAS_PROTOCOL", "Value": "$DOCDB_NAS_PROTOCOL" },
     { "Name": "DOCDB_NAS_USERNAME", "Value": "$DOCDB_NAS_USERNAME" },
     { "Name": "DOCDB_NAS_PASSWORD", "Value": "$NAS_PASSWORD" },
+    { "Name": "DOCDB_IOT_PASS", "Value": "$DOCDB_IOT_PASS" },
     { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
 ]
 ENVEOF
@@ -475,6 +486,7 @@ export DOCDB_NAS_ROOT
 export DOCDB_NAS_PROTOCOL
 export DOCDB_NAS_USERNAME
 export DOCDB_NAS_PASSWORD
+export DOCDB_IOT_PASS
 
 # Create overlay network for Lambda/ECS
 if ! docker network ls --format '{{.Name}}' | grep -q "^${LAMBDA_NETWORK}$"; then
