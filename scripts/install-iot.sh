@@ -405,6 +405,54 @@ docker_login_ghcr() {
     return 1
 }
 
+ensure_docdb_nas_path() {
+    if [ "$DOCDB_NAS_PROTOCOL" != "cifs" ]; then
+        echo "  ${YELLOW}⚠${NC}  NAS path preflight currently runs only for CIFS (protocol: $DOCDB_NAS_PROTOCOL)"
+        return 0
+    fi
+
+    nas_root_clean="${DOCDB_NAS_ROOT%/}"
+    nas_root_no_lead="${nas_root_clean#/}"
+    nas_share="${nas_root_no_lead%%/*}"
+    nas_subpath="${nas_root_no_lead#${nas_share}}"
+    nas_subpath="${nas_subpath#/}"
+
+    if [ -z "$nas_share" ]; then
+        echo "  ${RED}✗${NC} Invalid DOCDB_NAS_ROOT '$DOCDB_NAS_ROOT' (expected format: /share[/path])"
+        return 1
+    fi
+
+    mount_point="/tmp/docker-iot-cifs-$$"
+    mkdir -p "$mount_point"
+
+    mount_source="//$DOCDB_NAS_SERVER/$nas_share"
+    mount_opts="vers=3.0,noserverino,noperm,username=$DOCDB_NAS_USERNAME,password=$NAS_PASSWORD"
+
+    echo "  Verifying NAS path on $mount_source..."
+    if ! mount -t cifs "$mount_source" "$mount_point" -o "$mount_opts" >/dev/null 2>&1; then
+        rmdir "$mount_point" 2>/dev/null || true
+        echo "  ${RED}✗${NC} Could not mount NAS share '$mount_source' via CIFS"
+        return 1
+    fi
+
+    if [ -n "$nas_subpath" ]; then
+        db_path="$mount_point/$nas_subpath/docker-iot-db"
+    else
+        db_path="$mount_point/docker-iot-db"
+    fi
+
+    if [ -d "$db_path" ]; then
+        already "NAS path '${DOCDB_NAS_ROOT}/docker-iot-db' exists"
+    else
+        mkdir -p "$db_path"
+        echo "  ${GREEN}✓${NC} Created NAS path '${DOCDB_NAS_ROOT}/docker-iot-db'"
+    fi
+
+    umount "$mount_point" >/dev/null 2>&1 || true
+    rmdir "$mount_point" 2>/dev/null || true
+    return 0
+}
+
 # ── 6. Deploy docker-iot ────────────────────────────────────────
 echo ""
 echo "${CYAN}── 6. Deploy docker-iot${NC}"
@@ -573,6 +621,11 @@ fi
 sanitize_compose_yaml_for_stack "$COMPOSE_FILE" "$STACK_COMPOSE_FILE"
 if [ ! -s "$STACK_COMPOSE_FILE" ]; then
     echo "  ${RED}✗${NC} Failed to sanitize compose file for stack deployment"
+    exit 1
+fi
+
+if ! ensure_docdb_nas_path; then
+    echo "  ${RED}✗${NC} NAS preflight failed; aborting before service start"
     exit 1
 fi
 
