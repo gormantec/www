@@ -143,14 +143,21 @@ sanitize_loaded_default() {
     esac
 }
 
+ENV_FILE="/var/lib/docker/volumes/docker-iot-data/_data/env.json"
+
 load_existing_env() {
     ENV_JSON=""
-    env_file="/usr/src/app/data/env.json"
-    if [ -f "$env_file" ]; then
-        ENV_JSON="$(cat "$env_file")"
+    if [ -f "$ENV_FILE" ]; then
+        ENV_JSON="$(cat "$ENV_FILE")"
         return
     fi
+
     if command -v docker >/dev/null 2>&1 && docker volume inspect docker-iot-data >/dev/null 2>&1; then
+        mountpoint="$(docker volume inspect docker-iot-data --format '{{.Mountpoint}}' 2>/dev/null || true)"
+        if [ -n "$mountpoint" ] && [ -f "$mountpoint/env.json" ]; then
+            ENV_JSON="$(cat "$mountpoint/env.json")"
+            return
+        fi
         ENV_JSON="$(docker run --rm -i -v docker-iot-data:/data alpine cat /data/env.json 2>/dev/null || true)"
     fi
 }
@@ -412,15 +419,16 @@ else
     echo "  Image will be pulled on first stack deploy."
 fi
 
-# Create env.json in the Docker named volume used by the service.
-# This ensures the container sees it at /usr/src/app/data/env.json.
+# Create env.json directly in the Docker volume mountpoint used by the service.
+# This canonical host path maps to /usr/src/app/data/env.json inside the container.
 VOLUME_NAME="docker-iot-data"
 if ! docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
     docker volume create "$VOLUME_NAME" >/dev/null
     echo "  ${GREEN}✓${NC} Docker volume '$VOLUME_NAME' created"
 fi
 
-docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'cat > /data/env.json' << ENVEOF
+mkdir -p "$(dirname "$ENV_FILE")"
+cat > "$ENV_FILE" << ENVEOF
 [
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
@@ -438,8 +446,8 @@ docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'cat > /data/env.json' <
 ]
 ENVEOF
 
-docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'chmod 600 /data/env.json'
-echo "  ${GREEN}✓${NC} env.json written to volume '$VOLUME_NAME'"
+chmod 600 "$ENV_FILE" 2>/dev/null || true
+echo "  ${GREEN}✓${NC} env.json written to $ENV_FILE"
 
 echo "  ${YELLOW}⚠${NC}  env.json is still required until tenant secrets are confirmed in Secrets Manager"
 
