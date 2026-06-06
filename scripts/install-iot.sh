@@ -366,7 +366,7 @@ normalize_image_reference() {
 
 IMAGE_REF="$(normalize_image_reference "$IMAGE_NAME")"
 DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
-DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
+DOCDB_NAS_ROOT=$(ask "NAS share path (must already exist)" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
 DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
 DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
 
