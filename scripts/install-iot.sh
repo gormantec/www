@@ -93,13 +93,36 @@ already() {
 
 json_get_value() {
     key="$1"
-    printf '%s\n' "$ENV_JSON" | awk -v k="\"$key\"" '
-        index($0, k) {
-            line=$0
-            sub(/.*:[[:space:]]*"/, "", line)
-            sub(/".*/, "", line)
-            print line
-            exit
+    printf '%s\n' "$ENV_JSON" | awk -v key="$key" '
+        {
+            # Object format: "ROOT_DOMAIN": "gormantec.com"
+            if (match($0, "^[[:space:]]*\"" key "\"[[:space:]]*:[[:space:]]*\"")) {
+                line = $0
+                sub("^[[:space:]]*\"" key "\"[[:space:]]*:[[:space:]]*\"", "", line)
+                sub("\".*$", "", line)
+                print line
+                exit
+            }
+
+            # Array format entry start: "Name": "ROOT_DOMAIN"
+            if (match($0, "^[[:space:]]*\"Name\"[[:space:]]*:[[:space:]]*\"" key "\"")) {
+                in_entry = 1
+                next
+            }
+
+            # Array format value line: "Value": "gormantec.com"
+            if (in_entry && match($0, "^[[:space:]]*\"Value\"[[:space:]]*:[[:space:]]*\"")) {
+                line = $0
+                sub("^[[:space:]]*\"Value\"[[:space:]]*:[[:space:]]*\"", "", line)
+                sub("\".*$", "", line)
+                print line
+                exit
+            }
+
+            # End of object without a Value means malformed entry; reset state.
+            if (in_entry && $0 ~ /^[[:space:]]*}[[:space:]]*,?[[:space:]]*$/) {
+                in_entry = 0
+            }
         }
     '
 }
@@ -378,20 +401,20 @@ if ! docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
 fi
 
 docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'cat > /data/env.json' << ENVEOF
-{
-  "ROOT_DOMAIN": "$ROOT_DOMAIN",
-  "TUNNEL_TOKEN": "$TUNNEL_TOKEN",
-  "READ_PACKAGES_GITHUB_PAT": "$GITHUB_PAT",
-  "GITHUB_USERNAME": "$GITHUB_USERNAME",
-  "LAMBDA_NETWORK": "$LAMBDA_NETWORK",
-  "IMAGE_NAME": "$IMAGE_NAME",
-  "DOCDB_NAS_SERVER": "$DOCDB_NAS_SERVER",
-  "DOCDB_NAS_ROOT": "$DOCDB_NAS_ROOT",
-  "DOCDB_NAS_PROTOCOL": "$DOCDB_NAS_PROTOCOL",
-  "DOCDB_NAS_USERNAME": "$DOCDB_NAS_USERNAME",
-  "DOCDB_NAS_PASSWORD": "$NAS_PASSWORD",
-  "GATEKEEPER_SECRET": "$GATEKEEPER_SECRET"
-}
+[
+    { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
+    { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
+    { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
+    { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
+    { "Name": "LAMBDA_NETWORK", "Value": "$LAMBDA_NETWORK" },
+    { "Name": "IMAGE_NAME", "Value": "$IMAGE_NAME" },
+    { "Name": "DOCDB_NAS_SERVER", "Value": "$DOCDB_NAS_SERVER" },
+    { "Name": "DOCDB_NAS_ROOT", "Value": "$DOCDB_NAS_ROOT" },
+    { "Name": "DOCDB_NAS_PROTOCOL", "Value": "$DOCDB_NAS_PROTOCOL" },
+    { "Name": "DOCDB_NAS_USERNAME", "Value": "$DOCDB_NAS_USERNAME" },
+    { "Name": "DOCDB_NAS_PASSWORD", "Value": "$NAS_PASSWORD" },
+    { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
+]
 ENVEOF
 
 docker run --rm -i -v "$VOLUME_NAME":/data alpine sh -c 'chmod 600 /data/env.json'
