@@ -261,7 +261,10 @@ DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
 ROOT_DOMAIN_DEFAULT="$(json_get_value 'ROOT_DOMAIN')"
 GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
 GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
-LAMBDA_NETWORK_DEFAULT="$(json_get_value 'LAMBDA_NETWORK')"
+DEFAULT_NETWORK_DEFAULT="$(json_get_value 'DEFAULT_NETWORK')"
+if [ -z "$DEFAULT_NETWORK_DEFAULT" ]; then
+    DEFAULT_NETWORK_DEFAULT="$(json_get_value 'LAMBDA_NETWORK')"
+fi
 IMAGE_NAME_DEFAULT="$(json_get_value 'IMAGE_NAME')"
 MQTT_HOST_DEFAULT="$(json_get_value 'MQTT_HOST')"
 MQTT_PORT_DEFAULT="$(json_get_value 'MQTT_PORT')"
@@ -278,7 +281,10 @@ DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_P
 ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAULT")"
 GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
 GITHUB_USERNAME_DEFAULT="$(sanitize_loaded_default 'GITHUB_USERNAME' "$GITHUB_USERNAME_DEFAULT")"
-LAMBDA_NETWORK_DEFAULT="$(sanitize_loaded_default 'LAMBDA_NETWORK' "$LAMBDA_NETWORK_DEFAULT")"
+DEFAULT_NETWORK_DEFAULT="$(sanitize_loaded_default 'DEFAULT_NETWORK' "$DEFAULT_NETWORK_DEFAULT")"
+if [ -z "$DEFAULT_NETWORK_DEFAULT" ]; then
+    DEFAULT_NETWORK_DEFAULT="$(sanitize_loaded_default 'LAMBDA_NETWORK' "$(json_get_value 'LAMBDA_NETWORK')")"
+fi
 IMAGE_NAME_DEFAULT="$(sanitize_loaded_default 'IMAGE_NAME' "$IMAGE_NAME_DEFAULT")"
 MQTT_HOST_DEFAULT="$(sanitize_loaded_default 'MQTT_HOST' "$MQTT_HOST_DEFAULT")"
 MQTT_PORT_DEFAULT="$(sanitize_loaded_default 'MQTT_PORT' "$MQTT_PORT_DEFAULT")"
@@ -339,7 +345,7 @@ MQTT_HOST_DEFAULT2="mqtt.$ROOT_DOMAIN"
 MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-$MQTT_HOST_DEFAULT2}")
 MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-8883}")
 HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
-LAMBDA_NETWORK=$(ask "Lambda/ECS network" "${LAMBDA_NETWORK_DEFAULT:-iot-default-net}")
+DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
 IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
 READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
 
@@ -434,7 +440,7 @@ cat > "$ENV_FILE" << ENVEOF
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
-    { "Name": "LAMBDA_NETWORK", "Value": "$LAMBDA_NETWORK" },
+    { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
     { "Name": "IMAGE_NAME", "Value": "$IMAGE_NAME" },
     { "Name": "DOCDB_NAS_SERVER", "Value": "$DOCDB_NAS_SERVER" },
     { "Name": "DOCDB_NAS_ROOT", "Value": "$DOCDB_NAS_ROOT" },
@@ -529,6 +535,9 @@ export HTTP_PORT
 export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
 export GITHUB_USERNAME
+export DEFAULT_NETWORK
+# Backward compatibility for older compose files still using LAMBDA_NETWORK.
+LAMBDA_NETWORK="$DEFAULT_NETWORK"
 export LAMBDA_NETWORK
 export DOCDB_NAS_SERVER
 export DOCDB_NAS_ROOT
@@ -539,11 +548,11 @@ export DOCDB_NAS_PASSWORD
 export DOCDB_IOT_PASS
 
 # Create overlay network for Lambda/ECS
-if ! docker network ls --format '{{.Name}}' | grep -q "^${LAMBDA_NETWORK}$"; then
-    docker network create --driver overlay --attachable "$LAMBDA_NETWORK" 2>/dev/null || true
-    echo "  ${GREEN}✓${NC} Network '${LAMBDA_NETWORK}' created"
+if ! docker network ls --format '{{.Name}}' | grep -q "^${DEFAULT_NETWORK}$"; then
+    docker network create --driver overlay --attachable "$DEFAULT_NETWORK" 2>/dev/null || true
+    echo "  ${GREEN}✓${NC} Network '${DEFAULT_NETWORK}' created"
 else
-    already "Network '${LAMBDA_NETWORK}' exists"
+    already "Network '${DEFAULT_NETWORK}' exists"
 fi
 
 # Deploy using compose.yaml from the image, with env.json bind mount
