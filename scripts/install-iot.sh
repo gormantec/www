@@ -178,13 +178,13 @@ if command -v docker >/dev/null 2>&1; then
         already "Docker daemon operational"
     else
         echo "  Docker CLI is installed, but daemon is not fully operational. Verifying configuration..."
-        apk add --no-cache docker docker-compose openrc cifs-utils iptables bridge
+        apk add --no-cache docker docker-compose openrc cifs-utils nfs-utils iptables bridge
         rc-update add docker boot
         rc-service docker start
         echo "  ${GREEN}✓${NC} Docker started"
     fi
     # Ensure runtime deps are present even if Docker was installed without them
-    for pkg in cifs-utils iptables bridge; do
+    for pkg in cifs-utils nfs-utils iptables bridge; do
         if ! apk info -e "$pkg" >/dev/null 2>&1; then
             apk add --no-cache "$pkg"
             echo "  ${GREEN}✓${NC} $pkg installed"
@@ -192,7 +192,7 @@ if command -v docker >/dev/null 2>&1; then
     done
 else
     echo "  Installing Docker and dependencies..."
-    apk add --no-cache docker docker-compose openrc cifs-utils iptables bridge
+    apk add --no-cache docker docker-compose openrc cifs-utils nfs-utils iptables bridge
     rc-update add docker boot
     rc-service docker start
     echo "  ${GREEN}✓${NC} Docker installed"
@@ -406,18 +406,15 @@ docker_login_ghcr() {
 }
 
 ensure_docdb_nas_path() {
-    if [ "$DOCDB_NAS_PROTOCOL" != "cifs" ]; then
-        echo "  ${YELLOW}⚠${NC}  NAS path preflight currently runs only for CIFS (protocol: $DOCDB_NAS_PROTOCOL)"
-        return 0
+    protocol="$(printf '%s' "$DOCDB_NAS_PROTOCOL" | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$protocol" != "cifs" ] && [ "$protocol" != "nfs" ]; then
+        echo "  ${RED}✗${NC} Unsupported DOCDB_NAS_PROTOCOL '$DOCDB_NAS_PROTOCOL' (expected cifs or nfs)"
+        return 1
     fi
 
     nas_root_clean="${DOCDB_NAS_ROOT%/}"
-    nas_root_no_lead="${nas_root_clean#/}"
-    nas_share="${nas_root_no_lead%%/*}"
-    nas_subpath="${nas_root_no_lead#${nas_share}}"
-    nas_subpath="${nas_subpath#/}"
-
-    if [ -z "$nas_share" ]; then
+    if [ -z "$nas_root_clean" ]; then
         echo "  ${RED}✗${NC} Invalid DOCDB_NAS_ROOT '$DOCDB_NAS_ROOT' (expected format: /share[/path])"
         return 1
     fi
@@ -425,19 +422,43 @@ ensure_docdb_nas_path() {
     mount_point="/tmp/docker-iot-cifs-$$"
     mkdir -p "$mount_point"
 
-    mount_source="//$DOCDB_NAS_SERVER/$nas_share"
-    mount_opts="vers=3.0,noserverino,noperm,username=$DOCDB_NAS_USERNAME,password=$NAS_PASSWORD"
+    if [ "$protocol" = "cifs" ]; then
+        nas_root_no_lead="${nas_root_clean#/}"
+        nas_share="${nas_root_no_lead%%/*}"
+        nas_subpath="${nas_root_no_lead#${nas_share}}"
+        nas_subpath="${nas_subpath#/}"
 
-    echo "  Verifying NAS path on $mount_source..."
-    if ! mount -t cifs "$mount_source" "$mount_point" -o "$mount_opts" >/dev/null 2>&1; then
-        rmdir "$mount_point" 2>/dev/null || true
-        echo "  ${RED}✗${NC} Could not mount NAS share '$mount_source' via CIFS"
-        return 1
-    fi
+        if [ -z "$nas_share" ]; then
+            rmdir "$mount_point" 2>/dev/null || true
+            echo "  ${RED}✗${NC} Invalid DOCDB_NAS_ROOT '$DOCDB_NAS_ROOT' (expected format: /share[/path])"
+            return 1
+        fi
 
-    if [ -n "$nas_subpath" ]; then
-        db_path="$mount_point/$nas_subpath/docker-iot-db"
+        mount_source="//$DOCDB_NAS_SERVER/$nas_share"
+        mount_opts="vers=3.0,noserverino,noperm,username=$DOCDB_NAS_USERNAME,password=$NAS_PASSWORD"
+
+        echo "  Verifying NAS path on $mount_source via CIFS..."
+        if ! mount -t cifs "$mount_source" "$mount_point" -o "$mount_opts" >/dev/null 2>&1; then
+            rmdir "$mount_point" 2>/dev/null || true
+            echo "  ${RED}✗${NC} Could not mount NAS share '$mount_source' via CIFS"
+            return 1
+        fi
+
+        if [ -n "$nas_subpath" ]; then
+            db_path="$mount_point/$nas_subpath/docker-iot-db"
+        else
+            db_path="$mount_point/docker-iot-db"
+        fi
     else
+        mount_source="$DOCDB_NAS_SERVER:$nas_root_clean"
+
+        echo "  Verifying NAS path on $mount_source via NFS..."
+        if ! mount -t nfs "$mount_source" "$mount_point" >/dev/null 2>&1; then
+            rmdir "$mount_point" 2>/dev/null || true
+            echo "  ${RED}✗${NC} Could not mount NAS export '$mount_source' via NFS"
+            return 1
+        fi
+
         db_path="$mount_point/docker-iot-db"
     fi
 
