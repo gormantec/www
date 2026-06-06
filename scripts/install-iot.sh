@@ -103,16 +103,23 @@ json_get_value() {
                 exit
             }
 
-            # Array format entry start: "Name": "ROOT_DOMAIN"
-            if (match($0, "^[[:space:]]*\"Name\"[[:space:]]*:[[:space:]]*\"" key "\"")) {
+            # Array format entry: supports both pretty-printed and compact one-line objects.
+            if (match($0, "\"Name\"[[:space:]]*:[[:space:]]*\"" key "\"")) {
                 in_entry = 1
+                if (match($0, "\"Value\"[[:space:]]*:[[:space:]]*\"")) {
+                    line = $0
+                    sub("^.*\"Value\"[[:space:]]*:[[:space:]]*\"", "", line)
+                    sub("\".*$", "", line)
+                    print line
+                    exit
+                }
                 next
             }
 
             # Array format value line: "Value": "gormantec.com"
-            if (in_entry && match($0, "^[[:space:]]*\"Value\"[[:space:]]*:[[:space:]]*\"")) {
+            if (in_entry && match($0, "\"Value\"[[:space:]]*:[[:space:]]*\"")) {
                 line = $0
-                sub("^[[:space:]]*\"Value\"[[:space:]]*:[[:space:]]*\"", "", line)
+                sub("^.*\"Value\"[[:space:]]*:[[:space:]]*\"", "", line)
                 sub("\".*$", "", line)
                 print line
                 exit
