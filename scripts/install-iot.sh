@@ -382,6 +382,16 @@ test_github_pat() {
     return 1
 }
 
+# ── Helper: GitHub Packages login ─────────────────────────────────
+docker_login_ghcr() {
+    if [ -n "$GITHUB_PAT" ] && [ -n "$GITHUB_USERNAME" ]; then
+        if printf '%s\n' "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # ── 6. Deploy docker-iot ────────────────────────────────────────
 echo ""
 echo "${CYAN}── 6. Deploy docker-iot${NC}"
@@ -433,14 +443,45 @@ echo "  ${GREEN}✓${NC} env.json written to volume '$VOLUME_NAME'"
 
 echo "  ${YELLOW}⚠${NC}  env.json is still required until tenant secrets are confirmed in Secrets Manager"
 
-# ── Helper: GitHub Packages login ─────────────────────────────────
-docker_login_ghcr() {
-    if [ -n "$GITHUB_PAT" ] && [ -n "$GITHUB_USERNAME" ]; then
-        if printf '%s\n' "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin >/dev/null 2>&1; then
-            return 0
-        fi
-    fi
-    return 1
+sanitize_compose_yaml_for_stack() {
+    input_file="$1"
+    output_file="$2"
+
+    awk '
+        function leading_spaces(s, n) {
+            n = match(s, /[^ ]/)
+            return n ? n - 1 : length(s)
+        }
+        {
+            line = $0
+            indent = leading_spaces(line)
+            trimmed = line
+            sub(/^[ ]+/, "", trimmed)
+
+            # docker stack deploy rejects top-level "name:" in some environments.
+            if (indent == 0 && trimmed ~ /^name:[[:space:]]*/) {
+                next
+            }
+
+            if (indent == 0) {
+                in_services = (trimmed ~ /^services:[[:space:]]*$/)
+            }
+
+            # Track current service block under "services:".
+            if (in_services && indent == 2 && trimmed ~ /^[A-Za-z0-9_.-]+:[[:space:]]*$/) {
+                in_service_block = 1
+            } else if (indent <= 2 && trimmed !~ /^services:[[:space:]]*$/) {
+                in_service_block = 0
+            }
+
+            # docker stack deploy rejects service-level "name:".
+            if (in_services && in_service_block && indent == 4 && trimmed ~ /^name:[[:space:]]*/) {
+                next
+            }
+
+            print line
+        }
+    ' "$input_file" > "$output_file"
 }
 
 extract_compose_yaml_from_image() {
@@ -485,6 +526,7 @@ export DOCDB_NAS_SERVER
 export DOCDB_NAS_ROOT
 export DOCDB_NAS_PROTOCOL
 export DOCDB_NAS_USERNAME
+DOCDB_NAS_PASSWORD="$NAS_PASSWORD"
 export DOCDB_NAS_PASSWORD
 export DOCDB_IOT_PASS
 
@@ -500,6 +542,7 @@ fi
 COMPOSE_DIR="/opt/docker-iot"
 mkdir -p "$COMPOSE_DIR"
 COMPOSE_FILE="$COMPOSE_DIR/compose.yaml"
+STACK_COMPOSE_FILE="$COMPOSE_DIR/compose.stack.yaml"
 
 if extract_compose_yaml_from_image "$IMAGE_REF" "$COMPOSE_FILE"; then
     echo "  ${GREEN}✓${NC} compose.yaml extracted from image"
@@ -513,9 +556,15 @@ if [ ! -s "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
-if docker stack deploy -c "$COMPOSE_FILE" docker-iot; then
+sanitize_compose_yaml_for_stack "$COMPOSE_FILE" "$STACK_COMPOSE_FILE"
+if [ ! -s "$STACK_COMPOSE_FILE" ]; then
+    echo "  ${RED}✗${NC} Failed to sanitize compose file for stack deployment"
+    exit 1
+fi
+
+if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
     echo "  ${GREEN}✓${NC} Stack deployed"
-elif docker compose -f "$COMPOSE_FILE" up -d; then
+elif docker compose -f "$STACK_COMPOSE_FILE" up -d; then
     echo "  ${GREEN}✓${NC} Stack deployed via docker compose"
 else
     echo "  ${RED}✗${NC} Stack deployment failed"
