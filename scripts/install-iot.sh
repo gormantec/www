@@ -485,10 +485,18 @@ fi
 
 # Pull image
 echo "  Pulling ${IMAGE_REF}..."
+PULLED=false
 if docker pull "${IMAGE_REF}"; then
-    :
+    PULLED=true
 elif [ "${IMAGE_REF#ghcr.io/}" != "$IMAGE_REF" ] && docker_login_ghcr && docker pull "${IMAGE_REF}"; then
-    :
+    PULLED=true
+fi
+
+if [ "$PULLED" = true ]; then
+    DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" 2>/dev/null || true)
+    if [ -n "$DIGEST" ]; then
+        echo "  ${GREEN}✓${NC} Image digest: ${DIGEST}"
+    fi
 else
     echo "  ${YELLOW}⚠${NC}  Could not pull image (check image name, GitHub PAT, GitHub username, and network)"
     echo "  Image will be pulled on first stack deploy."
