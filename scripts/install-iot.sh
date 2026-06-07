@@ -498,8 +498,9 @@ if [ "$PULLED" = true ]; then
         echo "  ${GREEN}✓${NC} Image digest: ${DIGEST}"
     fi
 else
-    echo "  ${YELLOW}⚠${NC}  Could not pull image (check image name, GitHub PAT, GitHub username, and network)"
-    echo "  Image will be pulled on first stack deploy."
+    echo "  ${RED}✗${NC} Could not pull image — refusing to use a stale cached version."
+    echo "  Check: image name, GitHub PAT scopes (needs read:packages), and network."
+    exit 1
 fi
 
 # Create env.json directly in the Docker volume mountpoint used by the service.
