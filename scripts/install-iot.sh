@@ -498,9 +498,78 @@ if [ "$PULLED" = true ]; then
         echo "  ${GREEN}✓${NC} Image digest: ${DIGEST}"
     fi
 else
-    echo "  ${RED}✗${NC} Could not pull image — refusing to use a stale cached version."
-    echo "  Check: image name, GitHub PAT scopes (needs read:packages), and network."
-    exit 1
+    echo "  ${RED}✗${NC} Could not pull image from GitHub Packages."
+    echo ""
+
+    BUILD_LOCALLY="y"
+    if [ -t 0 ] || [ -r /dev/tty ]; then
+        printf "${CYAN}  Build image locally from source? [Y]/n: ${NC}" >&$PROMPT_FD
+        read -r BUILD_LOCALLY <&$PROMPT_FD
+    fi
+    BUILD_LOCALLY=$(printf '%s' "${BUILD_LOCALLY:-y}" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$BUILD_LOCALLY" != "y" ] && [ "$BUILD_LOCALLY" != "yes" ]; then
+        echo "  ${RED}✗${NC} Aborting — no image available."
+        exit 1
+    fi
+
+    echo ""
+    echo "  ${CYAN}── Building docker-iot from source ──${NC}"
+
+    # Ensure git is available
+    if ! command -v git >/dev/null 2>&1; then
+        echo "  Installing git..."
+        apk add --no-cache git
+    fi
+
+    BUILD_DIR="/tmp/docker-iot-build-$$"
+    mkdir -p "$BUILD_DIR"
+    echo "  Clone directory: $BUILD_DIR"
+
+    # Clone the repo (use GITHUB_PAT for private repo access)
+    REPO_URL="https://github.com/gormantec/docker-iot.git"
+    if [ -n "$GITHUB_PAT" ]; then
+        REPO_URL="https://gormantec:${GITHUB_PAT}@github.com/gormantec/docker-iot.git"
+    fi
+
+    echo "  Cloning $REPO_URL..."
+    if git clone --depth 1 --branch main "$REPO_URL" "$BUILD_DIR/repo" 2>&1; then
+        echo "  ${GREEN}✓${NC} Repository cloned"
+    else
+        echo "  ${RED}✗${NC} Failed to clone repository (check network and GITHUB_PAT)"
+        rm -rf "$BUILD_DIR"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR/repo"
+    BUILD_SHA=$(git rev-parse HEAD)
+    BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    echo "  BUILD_SHA: $BUILD_SHA"
+
+    echo "  Building image ${IMAGE_REF}..."
+    if docker build \
+        --platform linux/amd64 \
+        -f Dockerfile \
+        -t "${IMAGE_REF}" \
+        --build-arg BUILD_DATE="$BUILD_DATE" \
+        --build-arg BUILD_SHA="$BUILD_SHA" \
+        --build-arg IMAGE_NAME="$IMAGE_NAME" \
+        . ; then
+        echo "  ${GREEN}✓${NC} Image built successfully"
+    else
+        echo "  ${RED}✗${NC} Build failed"
+        rm -rf "$BUILD_DIR"
+        exit 1
+    fi
+
+    DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" 2>/dev/null || true)
+    if [ -n "$DIGEST" ]; then
+        echo "  ${GREEN}✓${NC} Image digest: ${DIGEST}"
+    fi
+
+    cd /
+    rm -rf "$BUILD_DIR"
+    echo ""
 fi
 
 # Create env.json directly in the Docker volume mountpoint used by the service.
