@@ -807,10 +807,10 @@ if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
     echo "  ${GREEN}✓${NC} Stack deployed"
     # Force service to pick up newly pulled image (stack deploy skips
     # unchanged services even when the underlying image layers changed).
-    if docker service inspect docker-iot_server >/dev/null 2>&1; then
-        docker service update --force --image "${IMAGE_REF}" docker-iot_server
-        echo "  ${GREEN}✓${NC} Service updated with new image"
-    fi
+   # if docker service inspect docker-iot_server >/dev/null 2>&1; then
+   #     docker service update --force --image "${IMAGE_REF}" docker-iot_server
+   #     echo "  ${GREEN}✓${NC} Service updated with new image"
+   # fi
 elif docker compose -f "$STACK_COMPOSE_FILE" up -d; then
     echo "  ${GREEN}✓${NC} Stack deployed via docker compose"
 else
