@@ -35,6 +35,28 @@ if [ ! -f /etc/alpine-release ]; then
 fi
 echo "${GREEN}✓${NC} Alpine Linux $(cat /etc/alpine-release)"
 
+# ── Parse flags ─────────────────────────────────────────────────
+YES_MODE=false
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) YES_MODE=true ;;
+        -h|--help)
+            echo "Usage: $0 [-y]"
+            echo "  -y, --yes  Accept all defaults (errors if required defaults are empty)"
+            exit 0
+            ;;
+        *)
+            echo "${RED}Unknown option: $arg${NC}"
+            echo "Usage: $0 [-y]"
+            exit 1
+            ;;
+    esac
+done
+
+if $YES_MODE; then
+    echo "${YELLOW}  -y flag set: accepting all defaults${NC}"
+fi
+
 # ── Helper: prompt with default ─────────────────────────────────
 if [ -t 0 ]; then
     PROMPT_FD=0
@@ -147,6 +169,16 @@ sanitize_loaded_default() {
             echo "$value"
             ;;
     esac
+}
+
+require_value() {
+    name="$1"
+    value="$2"
+    if [ -z "$value" ] || [ "$value" = "null" ] || [ "$value" = "undefined" ]; then
+        echo "${RED}✗${NC} ${name} is required but has no default. Provide it via env.json or remove -y."
+        exit 1
+    fi
+    echo "$value"
 }
 
 ENV_FILE="/var/lib/docker/volumes/docker-iot-data/_data/env.json"
@@ -301,53 +333,100 @@ fi
 # ── 5. Collect secrets ──────────────────────────────────────────
 echo ""
 echo "${CYAN}── 5. Configuration${NC}"
-echo "  Press Enter to accept defaults (shown in brackets)."
-echo "  Required fields (no default) must be filled."
-echo ""
 
-TUNNEL_TOKEN=""
-while [ -z "$TUNNEL_TOKEN" ]; do
-    TUNNEL_TOKEN=$(ask "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT" "secret")
-    if [ -z "$TUNNEL_TOKEN" ]; then
-        echo "  ${RED}⚠  Tunnel token is required${NC}"
-    fi
-done
+if $YES_MODE; then
+    echo "  Using defaults from existing env.json (if any)."
+    echo ""
 
-GITHUB_PAT=""
-while [ -z "$GITHUB_PAT" ]; do
-    GITHUB_PAT=$(ask "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT" "secret")
-    if [ -z "$GITHUB_PAT" ]; then
-        echo "  ${RED}⚠  GitHub PAT is required${NC}"
-    fi
-done
+    TUNNEL_TOKEN=$(require_value "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT")
+    GITHUB_PAT=$(require_value "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT")
+    NAS_PASSWORD=$(require_value "NAS password" "$NAS_PASSWORD_DEFAULT")
+    DOCDB_IOT_PASS=$(require_value "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT")
 
-NAS_PASSWORD=""
-while [ -z "$NAS_PASSWORD" ]; do
-    NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
-    if [ -z "$NAS_PASSWORD" ]; then
-        echo "  ${RED}⚠  NAS password is required${NC}"
-    fi
-done
+    ROOT_DOMAIN="${ROOT_DOMAIN_DEFAULT:-gormantec.com}"
+    GATEKEEPER_SECRET="$GATEKEEPER_SECRET_DEFAULT"
+    GITHUB_USERNAME="${GITHUB_USERNAME_DEFAULT:-gormantec}"
+    MQTT_HOST_DEFAULT2="mqtt.$ROOT_DOMAIN"
+    MQTT_HOST="${MQTT_HOST_DEFAULT:-$MQTT_HOST_DEFAULT2}"
+    MQTT_PORT="${MQTT_PORT_DEFAULT:-8883}"
+    HTTP_PORT="${HTTP_PORT_DEFAULT:-9090}"
+    DEFAULT_NETWORK="${DEFAULT_NETWORK_DEFAULT:-iot-default-net}"
+    IMAGE_NAME="${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}"
+    READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
+    DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
+    DOCDB_NAS_ROOT="${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}"
+    DOCDB_NAS_PROTOCOL="${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}"
+    DOCDB_NAS_USERNAME="${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}"
 
-DOCDB_IOT_PASS=""
-while [ -z "$DOCDB_IOT_PASS" ]; do
-    DOCDB_IOT_PASS=$(ask "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT" "secret")
-    if [ -z "$DOCDB_IOT_PASS" ]; then
-        echo "  ${RED}⚠  Internal DocDB password is required${NC}"
-    fi
-done
+    echo "  ${GREEN}✓${NC} TUNNEL_TOKEN       = *****"
+    echo "  ${GREEN}✓${NC} GITHUB_PAT          = *****"
+    echo "  ${GREEN}✓${NC} NAS_PASSWORD        = *****"
+    echo "  ${GREEN}✓${NC} DOCDB_IOT_PASS      = *****"
+    echo "  ${GREEN}✓${NC} ROOT_DOMAIN         = $ROOT_DOMAIN"
+    echo "  ${GREEN}✓${NC} GATEKEEPER_SECRET   = *****"
+    echo "  ${GREEN}✓${NC} GITHUB_USERNAME     = $GITHUB_USERNAME"
+    echo "  ${GREEN}✓${NC} MQTT_HOST           = $MQTT_HOST"
+    echo "  ${GREEN}✓${NC} MQTT_PORT           = $MQTT_PORT"
+    echo "  ${GREEN}✓${NC} HTTP_PORT           = $HTTP_PORT"
+    echo "  ${GREEN}✓${NC} DEFAULT_NETWORK     = $DEFAULT_NETWORK"
+    echo "  ${GREEN}✓${NC} IMAGE_NAME          = $IMAGE_NAME"
+    echo "  ${GREEN}✓${NC} DOCDB_NAS_SERVER    = $DOCDB_NAS_SERVER"
+    echo "  ${GREEN}✓${NC} DOCDB_NAS_ROOT      = $DOCDB_NAS_ROOT"
+    echo "  ${GREEN}✓${NC} DOCDB_NAS_PROTOCOL  = $DOCDB_NAS_PROTOCOL"
+    echo "  ${GREEN}✓${NC} DOCDB_NAS_USERNAME  = $DOCDB_NAS_USERNAME"
+else
+    echo "  Press Enter to accept defaults (shown in brackets)."
+    echo "  Required fields (no default) must be filled."
+    echo ""
 
-echo ""
-ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
-GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret")
-GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
-MQTT_HOST_DEFAULT2="mqtt.$ROOT_DOMAIN"
-MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-$MQTT_HOST_DEFAULT2}")
-MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-8883}")
-HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
-DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
-IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
-READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
+    TUNNEL_TOKEN=""
+    while [ -z "$TUNNEL_TOKEN" ]; do
+        TUNNEL_TOKEN=$(ask "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT" "secret")
+        if [ -z "$TUNNEL_TOKEN" ]; then
+            echo "  ${RED}⚠  Tunnel token is required${NC}"
+        fi
+    done
+
+    GITHUB_PAT=""
+    while [ -z "$GITHUB_PAT" ]; do
+        GITHUB_PAT=$(ask "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT" "secret")
+        if [ -z "$GITHUB_PAT" ]; then
+            echo "  ${RED}⚠  GitHub PAT is required${NC}"
+        fi
+    done
+
+    NAS_PASSWORD=""
+    while [ -z "$NAS_PASSWORD" ]; do
+        NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
+        if [ -z "$NAS_PASSWORD" ]; then
+            echo "  ${RED}⚠  NAS password is required${NC}"
+        fi
+    done
+
+    DOCDB_IOT_PASS=""
+    while [ -z "$DOCDB_IOT_PASS" ]; do
+        DOCDB_IOT_PASS=$(ask "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT" "secret")
+        if [ -z "$DOCDB_IOT_PASS" ]; then
+            echo "  ${RED}⚠  Internal DocDB password is required${NC}"
+        fi
+    done
+
+    echo ""
+    ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
+    GATEKEEPER_SECRET=$(ask "Gatekeeper secret" "$GATEKEEPER_SECRET_DEFAULT" "secret")
+    GITHUB_USERNAME=$(ask "GitHub username" "${GITHUB_USERNAME_DEFAULT:-gormantec}")
+    MQTT_HOST_DEFAULT2="mqtt.$ROOT_DOMAIN"
+    MQTT_HOST=$(ask "MQTT host" "${MQTT_HOST_DEFAULT:-$MQTT_HOST_DEFAULT2}")
+    MQTT_PORT=$(ask "MQTT port" "${MQTT_PORT_DEFAULT:-8883}")
+    HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
+    DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
+    IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
+    READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
+    DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
+    DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
+    DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
+    DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
+fi
 
 normalize_image_reference() {
     name="$1"
@@ -372,10 +451,6 @@ normalize_image_reference() {
 }
 
 IMAGE_REF="$(normalize_image_reference "$IMAGE_NAME")"
-DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
-DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
-DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
-DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
 
 mask_secret() {
     printf '%s\n' "$1" | sed -E 's/^(.{6}).*(.{4})$/\1***************************\2/'
