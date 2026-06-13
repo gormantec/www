@@ -37,28 +37,36 @@ echo "${GREEN}✓${NC} Alpine Linux $(cat /etc/alpine-release)"
 
 # ── Parse flags ─────────────────────────────────────────────────
 YES_MODE=false
+NO_TTY=false
 for arg in "$@"; do
     case "$arg" in
         -y|--yes) YES_MODE=true ;;
+        --no-tty) NO_TTY=true; YES_MODE=true ;;
         -h|--help)
-            echo "Usage: $0 [-y]"
-            echo "  -y, --yes  Accept all defaults (errors if required defaults are empty)"
+            echo "Usage: $0 [-y] [--no-tty]"
+            echo "  -y, --yes   Accept all defaults (errors if required defaults are empty)"
+            echo "  --no-tty    Same as -y, but also disables all TTY prompts (safe for scripts)"
             exit 0
             ;;
         *)
             echo "${RED}Unknown option: $arg${NC}"
-            echo "Usage: $0 [-y]"
+            echo "Usage: $0 [-y] [--no-tty]"
             exit 1
             ;;
     esac
 done
 
-if $YES_MODE; then
+if $NO_TTY; then
+    echo "${YELLOW}  --no-tty: running in non-interactive mode (no prompts, defaults only)${NC}"
+elif $YES_MODE; then
     echo "${YELLOW}  -y flag set: accepting all defaults${NC}"
 fi
 
 # ── Helper: prompt with default ─────────────────────────────────
-if [ -t 0 ]; then
+if $NO_TTY; then
+    # Non-interactive mode — never try to open /dev/tty
+    PROMPT_FD=0
+elif [ -t 0 ]; then
     PROMPT_FD=0
 elif [ -r /dev/tty ]; then
     exec 3</dev/tty
@@ -577,7 +585,7 @@ else
     echo ""
 
     BUILD_LOCALLY="y"
-    if [ -t 0 ] || [ -r /dev/tty ]; then
+    if ! $NO_TTY && { [ -t 0 ] || [ -r /dev/tty ]; }; then
         printf "${CYAN}  Build image locally from source? [Y]/n: ${NC}" >&$PROMPT_FD
         read -r BUILD_LOCALLY <&$PROMPT_FD
     fi
