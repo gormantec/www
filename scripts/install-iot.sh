@@ -855,6 +855,12 @@ else
     echo "  Skipping NAS mount check (non-root, already configured on first run)"
 fi
 
+if docker service rm $(docker service ls --filter name=docker-iot_server -q); then
+    echo "  ${GREEN}✓${NC} Stack removed"
+else
+    echo "  ${RED}✗${NC} Stack remove failed"
+fi
+
 if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
     echo "  ${GREEN}✓${NC} Stack deployed"
     # Force service to pick up newly pulled image (stack deploy skips
