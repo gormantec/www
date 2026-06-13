@@ -824,12 +824,6 @@ fi
 
 # Deploy using compose.yaml from the image, with env.json bind mount
 COMPOSE_DIR="/opt/docker-iot"
-COMPOSE_CLEANUP=false
-if ! $IS_ROOT && [ ! -d "$COMPOSE_DIR" ] && [ ! -w "$(dirname "$COMPOSE_DIR")" ]; then
-    # Non-root and /opt not writable — use temp dir
-    COMPOSE_DIR="$(mktemp -d /tmp/docker-iot-deploy-XXXXXX)"
-    COMPOSE_CLEANUP=true
-fi
 mkdir -p "$COMPOSE_DIR"
 COMPOSE_FILE="$COMPOSE_DIR/compose.yaml"
 STACK_COMPOSE_FILE="$COMPOSE_DIR/compose.stack.yaml"
@@ -876,9 +870,9 @@ else
     exit 1
 fi
 
-# Clean up temp compose dir if we created one
-if $COMPOSE_CLEANUP; then
-    rm -rf "$COMPOSE_DIR"
+# Grant docker user ownership of compose dir for subsequent non-root runs
+if $IS_ROOT && [ -d /opt/docker-iot ]; then
+    chown docker:docker -R /opt/docker-iot 2>/dev/null || true
 fi
 
 # ── 7. Verify ────────────────────────────────────────────────────
