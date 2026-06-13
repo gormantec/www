@@ -35,6 +35,14 @@ if [ ! -f /etc/alpine-release ]; then
 fi
 echo "${GREEN}✓${NC} Alpine Linux $(cat /etc/alpine-release)"
 
+# ── Detect root ─────────────────────────────────────────────────
+if [ "$(id -u)" = "0" ]; then
+    IS_ROOT=true
+else
+    IS_ROOT=false
+    echo "  Running as non-root user — will use Docker for volume access"
+fi
+
 # ── Parse flags ─────────────────────────────────────────────────
 YES_MODE=false
 NO_TTY=false
@@ -193,6 +201,16 @@ ENV_FILE="/var/lib/docker/volumes/docker-iot-data/_data/env.json"
 
 load_existing_env() {
     ENV_JSON=""
+
+    # Non-root: use Docker to read the volume (bypasses host filesystem permissions)
+    if ! $IS_ROOT && command -v docker >/dev/null 2>&1 && docker volume inspect docker-iot-data >/dev/null 2>&1; then
+        ENV_JSON="$(docker run --rm -i -v docker-iot-data:/data alpine cat /data/env.json 2>/dev/null || true)"
+        if [ -n "$ENV_JSON" ]; then
+            return
+        fi
+    fi
+
+    # Root: try direct host path first, then Docker volume mountpoint, then docker run
     if [ -f "$ENV_FILE" ]; then
         ENV_JSON="$(cat "$ENV_FILE")"
         return
@@ -663,8 +681,9 @@ if ! docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
     echo "  ${GREEN}✓${NC} Docker volume '$VOLUME_NAME' created"
 fi
 
-mkdir -p "$(dirname "$ENV_FILE")"
-cat > "$ENV_FILE" << ENVEOF
+if $IS_ROOT; then
+    mkdir -p "$(dirname "$ENV_FILE")"
+    cat > "$ENV_FILE" << ENVEOF
 [
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
@@ -681,9 +700,30 @@ cat > "$ENV_FILE" << ENVEOF
     { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
 ]
 ENVEOF
-
-chmod 600 "$ENV_FILE" 2>/dev/null || true
-echo "  ${GREEN}✓${NC} env.json written to $ENV_FILE"
+    chmod 600 "$ENV_FILE" 2>/dev/null || true
+    echo "  ${GREEN}✓${NC} env.json written to $ENV_FILE"
+else
+    # Non-root: write env.json via Docker to bypass host filesystem permissions
+    echo "  Writing env.json via Docker volume..."
+    docker run --rm -i -v docker-iot-data:/data alpine sh -c 'cat > /data/env.json && chmod 600 /data/env.json' << ENVEOF
+[
+    { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
+    { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
+    { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
+    { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
+    { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
+    { "Name": "IMAGE_NAME", "Value": "$IMAGE_NAME" },
+    { "Name": "DOCDB_NAS_SERVER", "Value": "$DOCDB_NAS_SERVER" },
+    { "Name": "DOCDB_NAS_ROOT", "Value": "$DOCDB_NAS_ROOT" },
+    { "Name": "DOCDB_NAS_PROTOCOL", "Value": "$DOCDB_NAS_PROTOCOL" },
+    { "Name": "DOCDB_NAS_USERNAME", "Value": "$DOCDB_NAS_USERNAME" },
+    { "Name": "DOCDB_NAS_PASSWORD", "Value": "$NAS_PASSWORD" },
+    { "Name": "DOCDB_IOT_PASS", "Value": "$DOCDB_IOT_PASS" },
+    { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
+]
+ENVEOF
+    echo "  ${GREEN}✓${NC} env.json written to Docker volume"
+fi
 
 echo "  ${YELLOW}⚠${NC}  env.json is still required until tenant secrets are confirmed in Secrets Manager"
 
@@ -784,6 +824,12 @@ fi
 
 # Deploy using compose.yaml from the image, with env.json bind mount
 COMPOSE_DIR="/opt/docker-iot"
+COMPOSE_CLEANUP=false
+if ! $IS_ROOT && [ ! -d "$COMPOSE_DIR" ] && [ ! -w "$(dirname "$COMPOSE_DIR")" ]; then
+    # Non-root and /opt not writable — use temp dir
+    COMPOSE_DIR="$(mktemp -d /tmp/docker-iot-deploy-XXXXXX)"
+    COMPOSE_CLEANUP=true
+fi
 mkdir -p "$COMPOSE_DIR"
 COMPOSE_FILE="$COMPOSE_DIR/compose.yaml"
 STACK_COMPOSE_FILE="$COMPOSE_DIR/compose.stack.yaml"
@@ -806,9 +852,13 @@ if [ ! -s "$STACK_COMPOSE_FILE" ]; then
     exit 1
 fi
 
-if ! ensure_docdb_nas_path; then
-    echo "  ${RED}✗${NC} NAS preflight failed; aborting before service start"
-    exit 1
+if $IS_ROOT; then
+    if ! ensure_docdb_nas_path; then
+        echo "  ${RED}✗${NC} NAS preflight failed; aborting before service start"
+        exit 1
+    fi
+else
+    echo "  Skipping NAS mount check (non-root, already configured on first run)"
 fi
 
 if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
@@ -824,6 +874,11 @@ elif docker compose -f "$STACK_COMPOSE_FILE" up -d; then
 else
     echo "  ${RED}✗${NC} Stack deployment failed"
     exit 1
+fi
+
+# Clean up temp compose dir if we created one
+if $COMPOSE_CLEANUP; then
+    rm -rf "$COMPOSE_DIR"
 fi
 
 # ── 7. Verify ────────────────────────────────────────────────────
