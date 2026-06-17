@@ -319,6 +319,7 @@ adduser docker docker 2>/dev/null || true
 load_existing_env
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
+CLOUDFLARE_API_TOKEN="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
 DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
@@ -336,6 +337,7 @@ DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
 DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
+CLOUDFLARE_API_TOKEN="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
@@ -378,6 +380,7 @@ if $YES_MODE; then
     HTTP_PORT="${HTTP_PORT_DEFAULT:-9090}"
     DEFAULT_NETWORK="${DEFAULT_NETWORK_DEFAULT:-iot-default-net}"
     IMAGE_NAME="${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}"
+    CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
@@ -448,6 +451,7 @@ else
     HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
     DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
     IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
+    CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
@@ -690,6 +694,7 @@ if $IS_ROOT; then
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
+    { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
     { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
@@ -712,6 +717,7 @@ else
 [
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
+    { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
@@ -808,6 +814,7 @@ export MQTT_PORT
 export HTTP_PORT
 export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
+export CLOUDFLARE_API_TOKEN
 export GITHUB_TOKEN
 export GITHUB_USERNAME
 export DEFAULT_NETWORK
