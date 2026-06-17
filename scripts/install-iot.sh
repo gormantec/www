@@ -379,6 +379,7 @@ if $YES_MODE; then
     DEFAULT_NETWORK="${DEFAULT_NETWORK_DEFAULT:-iot-default-net}"
     IMAGE_NAME="${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
+    GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
     DOCDB_NAS_ROOT="${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}"
     DOCDB_NAS_PROTOCOL="${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}"
@@ -448,6 +449,7 @@ else
     DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
     IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
+    GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
     DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
     DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
@@ -688,6 +690,7 @@ if $IS_ROOT; then
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
+    { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
     { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
     { "Name": "IMAGE_NAME", "Value": "$IMAGE_NAME" },
@@ -710,6 +713,7 @@ else
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
+    { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
     { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
     { "Name": "IMAGE_NAME", "Value": "$IMAGE_NAME" },
@@ -804,6 +808,7 @@ export MQTT_PORT
 export HTTP_PORT
 export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
+export GITHUB_TOKEN
 export GITHUB_USERNAME
 export DEFAULT_NETWORK
 export DOCDB_NAS_SERVER
