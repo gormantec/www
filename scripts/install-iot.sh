@@ -319,7 +319,7 @@ adduser docker docker 2>/dev/null || true
 load_existing_env
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
-CLOUDFLARE_API_TOKEN="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
+CLOUDFLARE_API_TOKEN_DEFAULT="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
 DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
@@ -337,7 +337,7 @@ DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
 DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
-CLOUDFLARE_API_TOKEN="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN")"
+CLOUDFLARE_API_TOKEN_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
@@ -368,6 +368,7 @@ if $YES_MODE; then
 
     TUNNEL_TOKEN=$(require_value "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT")
     GITHUB_PAT=$(require_value "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT")
+    CLOUDFLARE_API_TOKEN=$(require_value "GitHub PAT (read:packages)" "$CLOUDFLARE_API_TOKEN_DEFAULT")
     NAS_PASSWORD=$(require_value "NAS password" "$NAS_PASSWORD_DEFAULT")
     DOCDB_IOT_PASS=$(require_value "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT")
 
@@ -380,7 +381,6 @@ if $YES_MODE; then
     HTTP_PORT="${HTTP_PORT_DEFAULT:-9090}"
     DEFAULT_NETWORK="${DEFAULT_NETWORK_DEFAULT:-iot-default-net}"
     IMAGE_NAME="${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}"
-    CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
@@ -425,6 +425,14 @@ else
         fi
     done
 
+    CLOUDFLARE_API_TOKEN=""
+    while [ -z "$CLOUDFLARE_API_TOKEN" ]; do
+        CLOUDFLARE_API_TOKEN=$(ask "GitHub PAT (read:packages)" "$CLOUDFLARE_API_TOKEN_DEFAULT" "secret")
+        if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "  ${RED}⚠  CLOUDFLARE_API_TOKEN is required${NC}"
+        fi
+    done
+
     NAS_PASSWORD=""
     while [ -z "$NAS_PASSWORD" ]; do
         NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
@@ -451,7 +459,6 @@ else
     HTTP_PORT=$(ask "HTTP port" "${HTTP_PORT_DEFAULT:-9090}")
     DEFAULT_NETWORK=$(ask "Default network" "${DEFAULT_NETWORK_DEFAULT:-iot-default-net}")
     IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
-    CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
     DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
