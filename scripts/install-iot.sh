@@ -881,7 +881,6 @@ sanitize_compose_yaml_for_stack() {
 extract_compose_yaml_from_image() {
     _image="$1"
     _out="$2"
-    _container
     _container=$(docker create "$_image" /bin/sh 2>/dev/null) || return 1
     if [ -z "$_container" ]; then
         return 1
@@ -960,8 +959,7 @@ fi
 
 if $IS_ROOT; then
     if ! ensure_docdb_nas_path; then
-        echo "  ${RED}✗${NC} NAS preflight failed; aborting before service start"
-        exit 1
+        echo "  ${YELLOW}⚠${NC}  NAS mount check failed — deploy will continue. Fix NAS connectivity and re-run."
     fi
 else
     echo "  Skipping NAS mount check (non-root, already configured on first run)"
