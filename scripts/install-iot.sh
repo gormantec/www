@@ -649,9 +649,35 @@ ensure_docdb_nas_path() {
         mount_opts="vers=3.0,noserverino,noperm,username=$DOCDB_NAS_USERNAME,password=$NAS_PASSWORD"
 
         echo "  Verifying NAS path on $mount_source via CIFS..."
+
+        # Diagnostics before mount attempt
+        _cifs_ok=true
+        if ! lsmod | grep -q cifs; then
+            echo "  ${YELLOW}⚠${NC}  cifs kernel module not loaded — run: modprobe cifs"
+            modprobe cifs 2>/dev/null || true
+        fi
+        if ! getent hosts "$DOCDB_NAS_SERVER" >/dev/null 2>&1 && ! getent ahosts "$DOCDB_NAS_SERVER" >/dev/null 2>&1; then
+            echo "  ${YELLOW}⚠${NC}  Cannot resolve '$DOCDB_NAS_SERVER' — is mDNS/avahi installed?"
+            echo "      Ubuntu minimal: sudo apt-get install avahi-daemon"
+            echo "      Or use an IP address for DOCDB_NAS_SERVER in .env"
+            _cifs_ok=false
+        else
+            _nas_ip=$(getent hosts "$DOCDB_NAS_SERVER" 2>/dev/null | awk '{print $1; exit}' || getent ahosts "$DOCDB_NAS_SERVER" 2>/dev/null | awk '{print $1; exit}')
+            [ -n "$_nas_ip" ] && echo "  ${GREEN}✓${NC} Resolved $DOCDB_NAS_SERVER → $_nas_ip"
+        fi
+        if $_cifs_ok && command -v nc >/dev/null 2>&1; then
+            if ! nc -z -w 3 "$DOCDB_NAS_SERVER" 445 2>/dev/null; then
+                echo "  ${YELLOW}⚠${NC}  Port 445 (SMB) unreachable on $DOCDB_NAS_SERVER — check firewall"
+                _cifs_ok=false
+            fi
+        fi
+
         if ! mount -t cifs "$mount_source" "$mount_point" -o "$mount_opts" >/dev/null 2>&1; then
             rmdir "$mount_point" 2>/dev/null || true
             echo "  ${RED}✗${NC} Could not mount NAS share '$mount_source' via CIFS"
+            if ! $_cifs_ok; then
+                echo "  ${YELLOW}→${NC} Fix the issues above and re-run the installer"
+            fi
             return 1
         fi
 
