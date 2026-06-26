@@ -77,8 +77,8 @@ if $NO_TTY; then
     PROMPT_FD=0
 elif [ -t 0 ]; then
     PROMPT_FD=0
-elif [ -r /dev/tty ]; then
-    exec 3</dev/tty
+elif [ -w /dev/tty ] && [ -r /dev/tty ]; then
+    exec 3<>/dev/tty
     PROMPT_FD=3
 else
     PROMPT_FD=0
