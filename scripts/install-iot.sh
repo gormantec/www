@@ -293,6 +293,14 @@ else
     echo "  ${GREEN}✓${NC} Docker installed"
 fi
 
+# Ensure NAS mount helpers are available (needed for CIFS/NFS in step 6)
+for nas_pkg in cifs-utils nfs-common; do
+    if ! dpkg -s "$nas_pkg" >/dev/null 2>&1; then
+        echo "  Installing $nas_pkg..."
+        apt-get install -y "$nas_pkg"
+    fi
+done
+
 # ── 2. Docker daemon config ─────────────────────────────────────
 echo ""
 echo "${CYAN}── 2. Docker daemon${NC}"
