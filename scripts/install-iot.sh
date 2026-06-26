@@ -815,25 +815,25 @@ sanitize_compose_yaml_for_stack() {
 }
 
 extract_compose_yaml_from_image() {
-    local image="$1"
-    local out="$2"
-    local container
-    container=$(docker create "$image" /bin/sh 2>/dev/null) || return 1
-    if [ -z "$container" ]; then
+    _image="$1"
+    _out="$2"
+    _container
+    _container=$(docker create "$_image" /bin/sh 2>/dev/null) || return 1
+    if [ -z "$_container" ]; then
         return 1
     fi
 
-    local result=1
-    local paths="/usr/src/app/compose.yaml /usr/src/app/docker-compose.yaml /compose.yaml /app/compose.yaml /docker-compose.yml /docker-compose.yaml /usr/src/app/docker-compose.yml"
-    for path in $paths; do
-        if docker cp "$container":"$path" "$out" >/dev/null 2>&1; then
-            result=0
+    _result=1
+    _paths="/usr/src/app/compose.yaml /usr/src/app/docker-compose.yaml /compose.yaml /app/compose.yaml /docker-compose.yml /docker-compose.yaml /usr/src/app/docker-compose.yml"
+    for _path in $_paths; do
+        if docker cp "$_container":"$_path" "$_out" >/dev/null 2>&1; then
+            _result=0
             break
         fi
     done
 
-    docker rm -v "$container" >/dev/null 2>&1 || true
-    return $result
+    docker rm -v "$_container" >/dev/null 2>&1 || true
+    return $_result
 }
 
 # ── Deploy the stack ────────────────────────────────────────────
