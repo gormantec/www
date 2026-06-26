@@ -73,16 +73,19 @@ fi
 
 # ── Helper: prompt with default ─────────────────────────────────
 if $NO_TTY; then
-    # Non-interactive mode — never try to open /dev/tty
+    # Non-interactive mode — never try /dev/tty
     PROMPT_FD=0
+    USE_TTY=false
 elif [ -t 0 ]; then
     PROMPT_FD=0
-elif [ -r /dev/tty ] && [ -w /dev/tty ]; then
-    # Stdin is a pipe (curl | sudo sh) — redirect to real terminal
-    exec </dev/tty
+    USE_TTY=false
+elif [ -c /dev/tty ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    # Stdin is a pipe (curl | sudo sh) — read/write /dev/tty directly
     PROMPT_FD=0
+    USE_TTY=true
 else
     PROMPT_FD=0
+    USE_TTY=false
 fi
 
 ask() {
@@ -100,23 +103,40 @@ ask() {
         fi
     fi
 
-    printf "${CYAN}%s [ %s ]:${NC} " "$prompt" "$display_default" >&$PROMPT_FD
+    # Print prompt — write to /dev/tty when piped, else to PROMPT_FD
+    if $USE_TTY; then
+        printf "${CYAN}%s [ %s ]:${NC} " "$prompt" "$display_default" >/dev/tty
+    else
+        printf "${CYAN}%s [ %s ]:${NC} " "$prompt" "$display_default" >&$PROMPT_FD
+    fi
 
     if [ "$secret" = "secret" ]; then
-        if [ -t "$PROMPT_FD" ]; then
-            stty -echo <&$PROMPT_FD 2>/dev/null || true
-        fi
-        read -r value <&$PROMPT_FD
-        if [ -t "$PROMPT_FD" ]; then
-            stty echo <&$PROMPT_FD 2>/dev/null || true
-        fi
-        if [ -n "$value" ] || [ -n "$default" ]; then
-            printf "*****\n" >&$PROMPT_FD
+        # Hide input (stty -echo)
+        if $USE_TTY; then
+            stty -echo </dev/tty 2>/dev/null || true
+            read -r value </dev/tty
+            stty echo </dev/tty 2>/dev/null || true
         else
-            printf "\n" >&$PROMPT_FD
+            if [ -t "$PROMPT_FD" ]; then
+                stty -echo <&$PROMPT_FD 2>/dev/null || true
+            fi
+            read -r value <&$PROMPT_FD
+            if [ -t "$PROMPT_FD" ]; then
+                stty echo <&$PROMPT_FD 2>/dev/null || true
+            fi
+        fi
+        # Print masked feedback
+        if [ -n "$value" ] || [ -n "$default" ]; then
+            $USE_TTY && printf "*****\n" >/dev/tty || printf "*****\n" >&$PROMPT_FD
+        else
+            $USE_TTY && printf "\n" >/dev/tty || printf "\n" >&$PROMPT_FD
         fi
     else
-        read -r value <&$PROMPT_FD
+        if $USE_TTY; then
+            read -r value </dev/tty
+        else
+            read -r value <&$PROMPT_FD
+        fi
     fi
 
     if [ -z "$value" ] && [ -n "$default" ]; then
