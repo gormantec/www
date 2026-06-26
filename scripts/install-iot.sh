@@ -321,12 +321,16 @@ else
 fi
 
 # Ensure NAS mount helpers are available (needed for CIFS/NFS in step 6)
-for nas_pkg in cifs-utils nfs-common; do
+for nas_pkg in cifs-utils nfs-common avahi-daemon; do
     if ! dpkg -s "$nas_pkg" >/dev/null 2>&1; then
         echo "  Installing $nas_pkg..."
         apt-get install -y "$nas_pkg"
     fi
 done
+# Load CIFS kernel module (might not auto-load on minimal installs)
+if ! lsmod | grep -q cifs; then
+    modprobe cifs 2>&1 || echo "  ${YELLOW}⚠${NC}  Could not load cifs kernel module"
+fi
 
 # ── 2. Docker daemon config ─────────────────────────────────────
 echo ""
@@ -652,14 +656,9 @@ ensure_docdb_nas_path() {
 
         # Diagnostics before mount attempt
         _cifs_ok=true
-        if ! lsmod | grep -q cifs; then
-            echo "  ${YELLOW}⚠${NC}  cifs kernel module not loaded — run: modprobe cifs"
-            modprobe cifs 2>/dev/null || true
-        fi
         if ! getent hosts "$DOCDB_NAS_SERVER" >/dev/null 2>&1 && ! getent ahosts "$DOCDB_NAS_SERVER" >/dev/null 2>&1; then
-            echo "  ${YELLOW}⚠${NC}  Cannot resolve '$DOCDB_NAS_SERVER' — is mDNS/avahi installed?"
-            echo "      Ubuntu minimal: sudo apt-get install avahi-daemon"
-            echo "      Or use an IP address for DOCDB_NAS_SERVER in .env"
+            echo "  ${YELLOW}⚠${NC}  Cannot resolve '$DOCDB_NAS_SERVER' — check DNS/mDNS"
+            echo "      Use an IP address for DOCDB_NAS_SERVER in .env if no mDNS"
             _cifs_ok=false
         else
             _nas_ip=$(getent hosts "$DOCDB_NAS_SERVER" 2>/dev/null | awk '{print $1; exit}' || getent ahosts "$DOCDB_NAS_SERVER" 2>/dev/null | awk '{print $1; exit}')
