@@ -325,6 +325,21 @@ fi
 echo ""
 echo "${CYAN}── 3. Docker Swarm${NC}"
 
+# Ensure br_netfilter is loaded (required for overlay networking)
+if ! lsmod | grep -q br_netfilter; then
+    modprobe br_netfilter 2>/dev/null || true
+fi
+if [ ! -f /etc/modules-load.d/docker-iot.conf ] || ! grep -q br_netfilter /etc/modules-load.d/docker-iot.conf 2>/dev/null; then
+    echo br_netfilter > /etc/modules-load.d/docker-iot.conf
+fi
+# Required sysctl for bridge traffic to traverse iptables
+if [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null)" != "1" ]; then
+    sysctl -w net.bridge.bridge-nf-call-iptables=1 >/dev/null
+fi
+if [ "$(sysctl -n net.bridge.bridge-nf-call-ip6tables 2>/dev/null)" != "1" ]; then
+    sysctl -w net.bridge.bridge-nf-call-ip6tables=1 >/dev/null
+fi
+
 if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
     already "Swarm active"
 else
