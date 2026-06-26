@@ -377,17 +377,20 @@ else
     echo "  ${GREEN}✓${NC} Docker Swarm initialised"
 fi
 
-# Print join commands for multi-node setups
+# Print join commands for multi-node setups (best-effort, don't fail on errors)
 if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
-    MANAGER_IP=$(docker info --format '{{.Swarm.NodeAddr}}' 2>/dev/null | cut -d: -f1)
-    WORKER_TOKEN=$(docker swarm join-token worker -q 2>/dev/null)
-    MANAGER_TOKEN=$(docker swarm join-token manager -q 2>/dev/null)
-    [ -n "$MANAGER_IP" ] && [ -n "$WORKER_TOKEN" ] || true
-    echo ""
-    echo "  ${CYAN}To add a worker node, run this on the other machine:${NC}"
-    echo "    ${GREEN}docker swarm join --token $WORKER_TOKEN ${MANAGER_IP}:2377${NC}"
-    echo "  ${CYAN}To add a manager node:${NC}"
-    echo "    ${GREEN}docker swarm join --token $MANAGER_TOKEN ${MANAGER_IP}:2377${NC}"
+    MANAGER_IP=$(docker info --format '{{.Swarm.NodeAddr}}' 2>/dev/null | cut -d: -f1) || true
+    WORKER_TOKEN=$(docker swarm join-token worker -q 2>/dev/null) || true
+    MANAGER_TOKEN=$(docker swarm join-token manager -q 2>/dev/null) || true
+    if [ -n "$MANAGER_IP" ] && [ -n "$WORKER_TOKEN" ]; then
+        echo ""
+        echo "  ${CYAN}To add a worker node:${NC}"
+        echo "    ${GREEN}docker swarm join --token $WORKER_TOKEN ${MANAGER_IP}:2377${NC}"
+    fi
+    if [ -n "$MANAGER_IP" ] && [ -n "$MANAGER_TOKEN" ]; then
+        echo "  ${CYAN}To add a manager node:${NC}"
+        echo "    ${GREEN}docker swarm join --token $MANAGER_TOKEN ${MANAGER_IP}:2377${NC}"
+    fi
 fi
 
 # ── 4. Ensure docker user in docker group ───────────────────────
