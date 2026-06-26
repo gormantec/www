@@ -367,29 +367,25 @@ if [ "$(sysctl -n net.bridge.bridge-nf-call-ip6tables 2>/dev/null)" != "1" ]; th
     sysctl -w net.bridge.bridge-nf-call-ip6tables=1 >/dev/null
 fi
 
-if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
-    already "Swarm active"
+if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active' && \
+   docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null | grep -q 'true'; then
+    already "Swarm active (manager)"
 else
     echo "  Initialising Swarm..."
-    docker swarm init 2>/dev/null || {
+    docker swarm init 2>&1 || {
         echo "  ${YELLOW}⚠${NC}  Could not init Swarm (check network interfaces)"
     }
     echo "  ${GREEN}✓${NC} Docker Swarm initialised"
 fi
 
 # Print join commands for multi-node setups (best-effort, don't fail on errors)
-if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
+if docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null | grep -q 'true'; then
     MANAGER_IP=$(docker info --format '{{.Swarm.NodeAddr}}' 2>/dev/null | cut -d: -f1) || true
     WORKER_TOKEN=$(docker swarm join-token worker -q 2>/dev/null) || true
-    MANAGER_TOKEN=$(docker swarm join-token manager -q 2>/dev/null) || true
     if [ -n "$MANAGER_IP" ] && [ -n "$WORKER_TOKEN" ]; then
         echo ""
-        echo "  ${CYAN}To add a worker node:${NC}"
+        echo "  ${CYAN}To add a worker node, run this on the other machine:${NC}"
         echo "    ${GREEN}docker swarm join --token $WORKER_TOKEN ${MANAGER_IP}:2377${NC}"
-    fi
-    if [ -n "$MANAGER_IP" ] && [ -n "$MANAGER_TOKEN" ]; then
-        echo "  ${CYAN}To add a manager node:${NC}"
-        echo "    ${GREEN}docker swarm join --token $MANAGER_TOKEN ${MANAGER_IP}:2377${NC}"
     fi
 fi
 
@@ -416,6 +412,7 @@ load_existing_env
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
 CLOUDFLARE_API_TOKEN_DEFAULT="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
+CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(json_get_value 'CLOUDFLARE_ACCOUNT_ID')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
 DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
@@ -434,6 +431,7 @@ DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
 CLOUDFLARE_API_TOKEN_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
+CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_ACCOUNT_ID' "$CLOUDFLARE_ACCOUNT_ID_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
@@ -464,7 +462,8 @@ if $YES_MODE; then
 
     TUNNEL_TOKEN=$(require_value "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT")
     GITHUB_PAT=$(require_value "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT")
-    CLOUDFLARE_API_TOKEN=$(require_value "GitHub PAT (read:packages)" "$CLOUDFLARE_API_TOKEN_DEFAULT")
+    CLOUDFLARE_API_TOKEN=$(require_value "Cloudflare API token" "$CLOUDFLARE_API_TOKEN_DEFAULT")
+    CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
     NAS_PASSWORD=$(require_value "NAS password" "$NAS_PASSWORD_DEFAULT")
     DOCDB_IOT_PASS=$(require_value "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT")
 
@@ -544,6 +543,8 @@ else
             echo "  ${RED}⚠  Internal DocDB password is required${NC}"
         fi
     done
+
+    CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
 
     echo ""
     ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
@@ -798,6 +799,7 @@ if $IS_ROOT; then
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
+    { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
     { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
@@ -821,6 +823,7 @@ else
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
+    { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
@@ -917,6 +920,8 @@ export HTTP_PORT
 export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
 export CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}"
+export CLOUDFLARE_ACCOUNT_ID
 export GITHUB_TOKEN
 export GITHUB_USERNAME
 export DEFAULT_NETWORK
@@ -968,10 +973,15 @@ else
     echo "  Skipping NAS mount check (non-root, already configured on first run)"
 fi
 
-if docker service rm $(docker service ls --filter name=docker-iot_server -q); then
-    echo "  ${GREEN}✓${NC} Stack removed"
+REMOVABLE_SERVICES=$(docker service ls --filter name=docker-iot_server -q 2>/dev/null)
+if [ -n "$REMOVABLE_SERVICES" ]; then
+    if docker service rm $REMOVABLE_SERVICES 2>/dev/null; then
+        echo "  ${GREEN}✓${NC} Stack removed"
+    else
+        echo "  ${RED}✗${NC} Stack remove failed"
+    fi
 else
-    echo "  ${RED}✗${NC} Stack remove failed"
+    echo "  ${GREEN}✓${NC} No existing stack to remove"
 fi
 
 if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
