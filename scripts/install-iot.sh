@@ -2,7 +2,7 @@
 # =============================================================================
 # docker-iot installer — Ubuntu server from scratch
 # =============================================================================
-# curl -fsSL https://www.gormantec.com/scripts/install-iot.sh | sh
+# curl -fsSL https://www.gormantec.com/scripts/install-iot.sh -o install.sh && sudo sh install.sh
 #
 # Idempotent — safe to run multiple times. Checks each step and skips if done.
 # =============================================================================
@@ -375,6 +375,19 @@ else
         echo "  ${YELLOW}⚠${NC}  Could not init Swarm (check network interfaces)"
     }
     echo "  ${GREEN}✓${NC} Docker Swarm initialised"
+fi
+
+# Print join commands for multi-node setups
+if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
+    MANAGER_IP=$(docker info --format '{{.Swarm.NodeAddr}}' 2>/dev/null | cut -d: -f1)
+    WORKER_TOKEN=$(docker swarm join-token worker -q 2>/dev/null)
+    MANAGER_TOKEN=$(docker swarm join-token manager -q 2>/dev/null)
+    [ -n "$MANAGER_IP" ] && [ -n "$WORKER_TOKEN" ] || true
+    echo ""
+    echo "  ${CYAN}To add a worker node, run this on the other machine:${NC}"
+    echo "    ${GREEN}docker swarm join --token $WORKER_TOKEN ${MANAGER_IP}:2377${NC}"
+    echo "  ${CYAN}To add a manager node:${NC}"
+    echo "    ${GREEN}docker swarm join --token $MANAGER_TOKEN ${MANAGER_IP}:2377${NC}"
 fi
 
 # ── 4. Ensure docker user in docker group ───────────────────────
