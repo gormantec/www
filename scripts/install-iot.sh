@@ -1,12 +1,14 @@
 #!/bin/sh
 # =============================================================================
-# docker-iot installer — Alpine Linux from scratch
+# docker-iot installer — Ubuntu server from scratch
 # =============================================================================
 # curl -fsSL https://www.gormantec.com/scripts/install.sh | sh
 #
 # Idempotent — safe to run multiple times. Checks each step and skips if done.
 # =============================================================================
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd 2>/dev/null || echo "$PWD")"
 
 if [ -t 1 ]; then
     RED="$(printf '\033[0;31m')"
@@ -28,12 +30,11 @@ echo "${CYAN}   docker-iot Installer${NC}"
 echo "${CYAN}============================================${NC}"
 echo ""
 
-# ── Check Alpine ────────────────────────────────────────────────
-if [ ! -f /etc/alpine-release ]; then
-    echo "${RED}This installer is for Alpine Linux only.${NC}"
+if ! grep -q Ubuntu /etc/os-release 2>/dev/null; then
+    echo "${RED}This installer requires Ubuntu.${NC}"
     exit 1
 fi
-echo "${GREEN}✓${NC} Alpine Linux $(cat /etc/alpine-release)"
+echo "${GREEN}✓${NC} Ubuntu $(grep VERSION_ID /etc/os-release | cut -d= -f2 | tr -d '"')"
 
 # ── Detect root ─────────────────────────────────────────────────
 if [ "$(id -u)" = "0" ]; then
@@ -223,7 +224,43 @@ load_existing_env() {
             return
         fi
         ENV_JSON="$(docker run --rm -i -v docker-iot-data:/data alpine cat /data/env.json 2>/dev/null || true)"
+        if [ -n "$ENV_JSON" ]; then
+            return
+        fi
     fi
+
+    # Fallback: try .env file in current dir or script dir, convert to JSON
+    for env_candidate in "./.env" "${SCRIPT_DIR}/.env"; do
+        if [ -f "$env_candidate" ]; then
+            echo "  ${YELLOW}ℹ${NC}  No env.json found — loading from ${env_candidate}"
+            # Convert KEY=VALUE to JSON array format
+            ENV_JSON="["
+            first=true
+            while IFS='=' read -r key value; do
+                # Skip empty lines and comments
+                [ -z "$key" ] && continue
+                case $key in '#'*) continue ;; esac
+                # Strip leading 'export ' if present
+                key="${key#export }"
+                # Trim surrounding whitespace
+                key="$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                # Strip surrounding quotes from value
+                value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'"'"'//;s/'"'"'$//')"
+                # Skip empty keys
+                [ -z "$key" ] && continue
+                if $first; then
+                    first=false
+                else
+                    ENV_JSON="$ENV_JSON,"
+                fi
+                ENV_JSON="$ENV_JSON
+        { \"Name\": \"$key\", \"Value\": \"$value\" }"
+            done < "$env_candidate"
+            ENV_JSON="$ENV_JSON
+    ]"
+            return
+        fi
+    done
 }
 
 # ── 1. Install Docker ───────────────────────────────────────────
@@ -235,24 +272,23 @@ if command -v docker >/dev/null 2>&1; then
         already "Docker $(docker --version 2>/dev/null | cut -d' ' -f3 | cut -d',' -f1)"
         already "Docker daemon operational"
     else
-        echo "  Docker CLI is installed, but daemon is not fully operational. Verifying configuration..."
-        apk add --no-cache docker docker-compose openrc cifs-utils nfs-utils iptables bridge
-        rc-update add docker boot
-        rc-service docker start
+        echo "  Docker CLI installed but daemon not running. Starting..."
+        systemctl start docker
+        systemctl enable docker
         echo "  ${GREEN}✓${NC} Docker started"
     fi
-    # Ensure runtime deps are present even if Docker was installed without them
-    for pkg in cifs-utils nfs-utils iptables bridge; do
-        if ! apk info -e "$pkg" >/dev/null 2>&1; then
-            apk add --no-cache "$pkg"
-            echo "  ${GREEN}✓${NC} $pkg installed"
-        fi
-    done
 else
-    echo "  Installing Docker and dependencies..."
-    apk add --no-cache docker docker-compose openrc cifs-utils nfs-utils iptables bridge
-    rc-update add docker boot
-    rc-service docker start
+    echo "  Installing Docker from official repo..."
+    apt-get update
+    apt-get install -y ca-certificates curl
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    systemctl enable docker
+    systemctl start docker
     echo "  ${GREEN}✓${NC} Docker installed"
 fi
 
@@ -272,7 +308,7 @@ else
   "log-opts": { "max-size": "10m", "max-file": "3" },
   "storage-driver": "overlay2"
 }' > "$DAEMON_JSON"
-    rc-service docker restart 2>/dev/null || service docker restart 2>/dev/null || true
+    svc_restart docker
     echo "  ${GREEN}✓${NC} Docker daemon configured"
 fi
 
@@ -290,31 +326,24 @@ else
     echo "  ${GREEN}✓${NC} Docker Swarm initialised"
 fi
 
-# ── 4. Create docker user ───────────────────────────────────────
+# ── 4. Ensure docker user in docker group ───────────────────────
 echo ""
-echo "${CYAN}── 4. User 'docker'${NC}"
+echo "${CYAN}── 4. Permissions${NC}"
 
 if id docker >/dev/null 2>&1; then
     already "User 'docker' exists"
-else
-    echo "  Creating user 'docker'..."
-    adduser -D -g "Docker IoT" docker
-    echo "  ${GREEN}✓${NC} User created"
-fi
-
-# Ensure docker user is in required groups
-for grp in wheel audio video netdev docker; do
-    if ! id docker | grep -q "$grp"; then
-        addgroup docker "$grp" 2>/dev/null || adduser docker "$grp" 2>/dev/null || true
-        echo "  ${GREEN}✓${NC} Added 'docker' to group '$grp'"
+    if id docker | grep -q docker; then
+        already "User 'docker' in docker group"
+    else
+        usermod -aG docker docker
+        echo "  ${GREEN}✓${NC} Added 'docker' to docker group"
     fi
-done
-
-# Ensure docker group exists and user is in it
-if ! getent group docker >/dev/null 2>&1; then
-    addgroup docker 2>/dev/null || true
+else
+    echo "  ${YELLOW}⚠${NC}  User 'docker' not found — creating..."
+    useradd -m -c "Docker IoT" docker
+    usermod -aG docker docker
+    echo "  ${GREEN}✓${NC} User 'docker' created and added to docker group"
 fi
-adduser docker docker 2>/dev/null || true
 
 load_existing_env
 
@@ -389,7 +418,7 @@ if $YES_MODE; then
     DOCDB_NAS_USERNAME="${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}"
 
     echo "  ${GREEN}✓${NC} TUNNEL_TOKEN       = *****"
-    echo "  ${GREEN}✓${NC} GITHUB_PAT          = *****"
+    echo "  ${GREEN}✓${NC} CLOUDFLARE_API_TOKEN = *****"
     echo "  ${GREEN}✓${NC} NAS_PASSWORD        = *****"
     echo "  ${GREEN}✓${NC} DOCDB_IOT_PASS      = *****"
     echo "  ${GREEN}✓${NC} ROOT_DOMAIN         = $ROOT_DOMAIN"
@@ -427,7 +456,7 @@ else
 
     CLOUDFLARE_API_TOKEN=""
     while [ -z "$CLOUDFLARE_API_TOKEN" ]; do
-        CLOUDFLARE_API_TOKEN=$(ask "GitHub PAT (read:packages)" "$CLOUDFLARE_API_TOKEN_DEFAULT" "secret")
+        CLOUDFLARE_API_TOKEN=$(ask "Cloudflare API token" "$CLOUDFLARE_API_TOKEN_DEFAULT" "secret")
         if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "  ${RED}⚠  CLOUDFLARE_API_TOKEN is required${NC}"
         fi
@@ -633,7 +662,7 @@ else
     # Ensure git is available
     if ! command -v git >/dev/null 2>&1; then
         echo "  Installing git..."
-        apk add --no-cache git
+        apt-get install -y git
     fi
 
     BUILD_DIR="/tmp/docker-iot-build-$$"
