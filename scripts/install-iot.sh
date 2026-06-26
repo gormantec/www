@@ -2,7 +2,7 @@
 # =============================================================================
 # docker-iot installer — Ubuntu server from scratch
 # =============================================================================
-# curl -fsSL https://www.gormantec.com/scripts/install.sh | sh
+# curl -fsSL https://www.gormantec.com/scripts/install-iot.sh | sh
 #
 # Idempotent — safe to run multiple times. Checks each step and skips if done.
 # =============================================================================
