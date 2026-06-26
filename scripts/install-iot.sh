@@ -80,9 +80,16 @@ elif [ -t 0 ]; then
     PROMPT_FD=0
     USE_TTY=false
 elif [ -c /dev/tty ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
-    # Stdin is a pipe (curl | sudo sh) — read/write /dev/tty directly
-    PROMPT_FD=0
-    USE_TTY=true
+    # Stdin is a pipe (curl | sudo sh). Reopen stdin as /dev/tty read-write.
+    # Using <> (not <) — this is bidirectional and won't hang on open.
+    exec <>/dev/tty 2>/dev/null || true
+    if [ -t 0 ]; then
+        PROMPT_FD=0
+        USE_TTY=false
+    else
+        PROMPT_FD=0
+        USE_TTY=true
+    fi
 else
     PROMPT_FD=0
     USE_TTY=false
