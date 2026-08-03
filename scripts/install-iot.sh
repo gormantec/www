@@ -415,6 +415,7 @@ fi
 load_existing_env
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
+NODE_AUTH_TOKEN_DEFAULT="$(json_get_value 'NODE_AUTH_TOKEN')"
 CLOUDFLARE_API_TOKEN_DEFAULT="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
 CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(json_get_value 'CLOUDFLARE_ACCOUNT_ID')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
@@ -434,6 +435,7 @@ DOCDB_NAS_PROTOCOL_DEFAULT="$(json_get_value 'DOCDB_NAS_PROTOCOL')"
 DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
+NODE_AUTH_TOKEN_DEFAULT="$(sanitize_loaded_default 'NODE_AUTH_TOKEN' "$NODE_AUTH_TOKEN_DEFAULT")"
 CLOUDFLARE_API_TOKEN_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
 CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_ACCOUNT_ID' "$CLOUDFLARE_ACCOUNT_ID_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
@@ -482,12 +484,14 @@ if $YES_MODE; then
     IMAGE_NAME="${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}"
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
+    NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN_DEFAULT}"
     DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
     DOCDB_NAS_ROOT="${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}"
     DOCDB_NAS_PROTOCOL="${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}"
     DOCDB_NAS_USERNAME="${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}"
 
     echo "  ${GREEN}✓${NC} TUNNEL_TOKEN       = *****"
+    echo "  ${GREEN}✓${NC} NODE_AUTH_TOKEN     = $( [ -n "$NODE_AUTH_TOKEN" ] && echo '*****' || echo '(not set)' )"
     echo "  ${GREEN}✓${NC} CLOUDFLARE_API_TOKEN = *****"
     echo "  ${GREEN}✓${NC} NAS_PASSWORD        = *****"
     echo "  ${GREEN}✓${NC} DOCDB_IOT_PASS      = *****"
@@ -549,6 +553,9 @@ else
     done
 
     CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
+
+    echo ""
+    NODE_AUTH_TOKEN=$(ask "Node Auth Token (optional)" "${NODE_AUTH_TOKEN_DEFAULT}" "secret")
 
     echo ""
     ROOT_DOMAIN=$(ask "Root domain" "${ROOT_DOMAIN_DEFAULT:-gormantec.com}")
@@ -822,6 +829,7 @@ if $IS_ROOT; then
 [
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
+    { "Name": "NODE_AUTH_TOKEN", "Value": "$NODE_AUTH_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
     { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
@@ -847,6 +855,7 @@ else
 [
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
+    { "Name": "NODE_AUTH_TOKEN", "Value": "$NODE_AUTH_TOKEN" },
     { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
     { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
@@ -938,6 +947,7 @@ echo "  Deploying docker-iot stack..."
 # These values are substituted by the compose file at deploy time.
 echo "  Exporting compose environment variables..."
 export TUNNEL_TOKEN
+export NODE_AUTH_TOKEN
 export ROOT_DOMAIN
 export MQTT_HOST
 export MQTT_PORT
