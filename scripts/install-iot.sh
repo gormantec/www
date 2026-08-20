@@ -918,6 +918,50 @@ sanitize_compose_yaml_for_stack() {
     ' "$input_file" > "$output_file"
 }
 
+strip_legacy_group_network() {
+    input_file="$1"
+    output_file="$2"
+    legacy_network="gormantec-com-default-net"
+
+    awk -v legacy_network="$legacy_network" '
+        function leading_spaces(s, n) {
+            n = match(s, /[^ ]/)
+            return n ? n - 1 : length(s)
+        }
+        {
+            line = $0
+            indent = leading_spaces(line)
+            trimmed = line
+            sub(/^[ ]+/, "", trimmed)
+
+            # Remove service network list entries like "- gormantec-com-default-net".
+            if (trimmed ~ ("^- " legacy_network "[[:space:]]*$")) {
+                next
+            }
+
+            # Drop top-level legacy network definition block.
+            if (skip_legacy_block) {
+                if (indent <= 2) {
+                    skip_legacy_block = 0
+                } else {
+                    next
+                }
+            }
+
+            if (indent == 0) {
+                in_top_networks = (trimmed ~ /^networks:[[:space:]]*$/)
+            }
+
+            if (in_top_networks && indent == 2 && trimmed ~ ("^" legacy_network ":[[:space:]]*$")) {
+                skip_legacy_block = 1
+                next
+            }
+
+            print line
+        }
+    ' "$input_file" > "$output_file"
+}
+
 extract_compose_yaml_from_image() {
     _image="$1"
     _out="$2"
@@ -998,6 +1042,12 @@ sanitize_compose_yaml_for_stack "$COMPOSE_FILE" "$STACK_COMPOSE_FILE"
 if [ ! -s "$STACK_COMPOSE_FILE" ]; then
     echo "  ${RED}✗${NC} Failed to sanitize compose file for stack deployment"
     exit 1
+fi
+
+TMP_STACK_COMPOSE_FILE="$STACK_COMPOSE_FILE.tmp"
+strip_legacy_group_network "$STACK_COMPOSE_FILE" "$TMP_STACK_COMPOSE_FILE"
+if [ -s "$TMP_STACK_COMPOSE_FILE" ]; then
+    mv "$TMP_STACK_COMPOSE_FILE" "$STACK_COMPOSE_FILE"
 fi
 
 if $IS_ROOT; then
