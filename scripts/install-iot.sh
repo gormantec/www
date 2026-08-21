@@ -421,6 +421,7 @@ CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(json_get_value 'CLOUDFLARE_ACCOUNT_ID')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
 DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
+SYNOLOGY_DB_PASS_DEFAULT="$(json_get_value 'SYNOLOGY_DB_PASS')"
 ROOT_DOMAIN_DEFAULT="$(json_get_value 'ROOT_DOMAIN')"
 GATEKEEPER_SECRET_DEFAULT="$(json_get_value 'GATEKEEPER_SECRET')"
 GITHUB_USERNAME_DEFAULT="$(json_get_value 'GITHUB_USERNAME')"
@@ -441,6 +442,11 @@ CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_ACCOUNT_ID'
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
+SYNOLOGY_DB_PASS_DEFAULT="$(sanitize_loaded_default 'SYNOLOGY_DB_PASS' "$SYNOLOGY_DB_PASS_DEFAULT")"
+
+if [ -z "$SYNOLOGY_DB_PASS_DEFAULT" ]; then
+    SYNOLOGY_DB_PASS_DEFAULT="$NAS_PASSWORD_DEFAULT"
+fi
 ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAULT")"
 GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
 GITHUB_USERNAME_DEFAULT="$(sanitize_loaded_default 'GITHUB_USERNAME' "$GITHUB_USERNAME_DEFAULT")"
@@ -472,6 +478,7 @@ if $YES_MODE; then
     CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
     NAS_PASSWORD=$(require_value "NAS password" "$NAS_PASSWORD_DEFAULT")
     DOCDB_IOT_PASS=$(require_value "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT")
+    SYNOLOGY_DB_PASS=$(require_value "Synology MariaDB password" "$SYNOLOGY_DB_PASS_DEFAULT")
 
     ROOT_DOMAIN="${ROOT_DOMAIN_DEFAULT:-gormantec.com}"
     GATEKEEPER_SECRET="$GATEKEEPER_SECRET_DEFAULT"
@@ -495,6 +502,7 @@ if $YES_MODE; then
     echo "  ${GREEN}✓${NC} CLOUDFLARE_API_TOKEN = *****"
     echo "  ${GREEN}✓${NC} NAS_PASSWORD        = *****"
     echo "  ${GREEN}✓${NC} DOCDB_IOT_PASS      = *****"
+    echo "  ${GREEN}✓${NC} SYNOLOGY_DB_PASS    = *****"
     echo "  ${GREEN}✓${NC} ROOT_DOMAIN         = $ROOT_DOMAIN"
     echo "  ${GREEN}✓${NC} GATEKEEPER_SECRET   = *****"
     echo "  ${GREEN}✓${NC} GITHUB_USERNAME     = $GITHUB_USERNAME"
@@ -549,6 +557,14 @@ else
         DOCDB_IOT_PASS=$(ask "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT" "secret")
         if [ -z "$DOCDB_IOT_PASS" ]; then
             echo "  ${RED}⚠  Internal DocDB password is required${NC}"
+        fi
+    done
+
+    SYNOLOGY_DB_PASS=""
+    while [ -z "$SYNOLOGY_DB_PASS" ]; do
+        SYNOLOGY_DB_PASS=$(ask "Synology MariaDB password" "$SYNOLOGY_DB_PASS_DEFAULT" "secret")
+        if [ -z "$SYNOLOGY_DB_PASS" ]; then
+            echo "  ${RED}⚠  Synology MariaDB password is required${NC}"
         fi
     done
 
@@ -843,6 +859,7 @@ if $IS_ROOT; then
     { "Name": "DOCDB_NAS_USERNAME", "Value": "$DOCDB_NAS_USERNAME" },
     { "Name": "DOCDB_NAS_PASSWORD", "Value": "$NAS_PASSWORD" },
     { "Name": "DOCDB_IOT_PASS", "Value": "$DOCDB_IOT_PASS" },
+    { "Name": "SYNOLOGY_DB_PASS", "Value": "$SYNOLOGY_DB_PASS" },
     { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
 ]
 ENVEOF
@@ -869,6 +886,7 @@ else
     { "Name": "DOCDB_NAS_USERNAME", "Value": "$DOCDB_NAS_USERNAME" },
     { "Name": "DOCDB_NAS_PASSWORD", "Value": "$NAS_PASSWORD" },
     { "Name": "DOCDB_IOT_PASS", "Value": "$DOCDB_IOT_PASS" },
+    { "Name": "SYNOLOGY_DB_PASS", "Value": "$SYNOLOGY_DB_PASS" },
     { "Name": "GATEKEEPER_SECRET", "Value": "$GATEKEEPER_SECRET" }
 ]
 ENVEOF
@@ -1011,6 +1029,7 @@ export DOCDB_NAS_USERNAME
 DOCDB_NAS_PASSWORD="$NAS_PASSWORD"
 export DOCDB_NAS_PASSWORD
 export DOCDB_IOT_PASS
+export SYNOLOGY_DB_PASS
 
 # Create overlay network for Lambda/ECS
 if ! docker network ls --format '{{.Name}}' | grep -q "^${DEFAULT_NETWORK}$"; then
