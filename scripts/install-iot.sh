@@ -1069,6 +1069,13 @@ if [ -s "$TMP_STACK_COMPOSE_FILE" ]; then
     mv "$TMP_STACK_COMPOSE_FILE" "$STACK_COMPOSE_FILE"
 fi
 
+# Ensure there is never a parallel docker compose runtime for docker-iot.
+# Running compose and swarm simultaneously can create duplicate docdb
+# containers pointing at the same storage.
+if command -v docker >/dev/null 2>&1; then
+    docker compose -f "$STACK_COMPOSE_FILE" down >/dev/null 2>&1 || true
+fi
+
 if $IS_ROOT; then
     if ! ensure_docdb_nas_path; then
         echo "  ${YELLOW}⚠${NC}  NAS mount check failed — deploy will continue. Fix NAS connectivity and re-run."
@@ -1096,8 +1103,6 @@ if docker stack deploy -c "$STACK_COMPOSE_FILE" docker-iot; then
    #     docker service update --force --image "${IMAGE_REF}" docker-iot_server
    #     echo "  ${GREEN}✓${NC} Service updated with new image"
    # fi
-elif docker compose -f "$STACK_COMPOSE_FILE" up -d; then
-    echo "  ${GREEN}✓${NC} Stack deployed via docker compose"
 else
     echo "  ${RED}✗${NC} Stack deployment failed"
     exit 1
