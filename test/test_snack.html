@@ -189,6 +189,9 @@
 				<div class="row">
 					<button id="online-btn" class="secondary">Go Online</button>
 					<button id="offline-btn" class="secondary">Go Offline</button>
+					<button id="refresh-appetize-btn" class="secondary">Refresh Appetize</button>
+					<button id="keepalive-appetize-btn" class="secondary">Keep Alive Ping</button>
+					<button id="autoaccept-appetize-btn" class="secondary">Auto Accept Expo Now</button>
 				</div>
 
 				<div id="status" class="status">status: idle</div>
@@ -238,6 +241,7 @@
 			snackPreviewRoot.appendChild(snackPreviewFrame);
 
 			const appetizeFrame = document.createElement('iframe');
+			appetizeFrame.id = 'appetize-embed';
 			appetizeFrame.allow = 'geolocation *; camera *; microphone *; screen-wake-lock *';
 			appetizePreviewRoot.appendChild(appetizeFrame);
 
@@ -249,6 +253,14 @@
 			const DEFAULT_APPETIZE_APP_ID = 'b_gyvl6mdc7q6bjerdqpo7zm5hii';
 			let appetizeAppId = DEFAULT_APPETIZE_APP_ID;
 			let lastSnackExpUrl = null;
+			let appetizeSdkPromise = null;
+			let appetizeClient = null;
+			let appetizeSession = null;
+			let autoAcceptInFlight = false;
+			let autoAcceptQueuedReason = null;
+			let autoAcceptRetryTimerIds = [];
+			let autoKeepAliveTimerId = null;
+			const AUTO_KEEPALIVE_INTERVAL_MS = 15000;
 
 			const BASE_DEPS = {
 				expo: { version: '~54.0.35' },
@@ -306,11 +318,176 @@
 			function buildAppetizeUrl(expUrl) {
 				if (!appetizeAppId || !expUrl) return null;
 				const params = encodeURIComponent(JSON.stringify({
-					EXDevMenuDisableAutoLaunch: true,
 					EXKernelDisableNuxDefaultsKey: true,
 				}));
 				const launchUrl = encodeURIComponent(expUrl);
-				return `https://appetize.io/embed/${appetizeAppId}?device=iphone16pro&launchUrl=${launchUrl}&params=${params}&appearance=light&deviceColor=black&scale=auto&orientation=portrait&centered=both`;
+				return `https://appetize.io/embed/${appetizeAppId}?device=iphone16pro&launchUrl=${launchUrl}&params=${params}&autoplay=true&launchApp=true&xdocMsg=true&appearance=light&deviceColor=black&scale=auto&orientation=portrait&centered=both`;
+			}
+
+			function resetAppetizeSdkState() {
+				appetizeClient = null;
+				appetizeSession = null;
+				if (autoKeepAliveTimerId) {
+					clearInterval(autoKeepAliveTimerId);
+					autoKeepAliveTimerId = null;
+				}
+			}
+
+			function startAutoKeepAlive(reason = 'auto') {
+				if (autoKeepAliveTimerId) {
+					clearInterval(autoKeepAliveTimerId);
+					autoKeepAliveTimerId = null;
+				}
+
+				autoKeepAliveTimerId = setInterval(async () => {
+					try {
+						const session = await ensureAppetizeSession();
+						if (typeof session?.heartbeat === 'function') {
+							await session.heartbeat();
+						}
+					} catch (error) {
+						addErrorEvent('appetize-autokeepalive', `heartbeat failed: ${error?.message || String(error)}`);
+					}
+				}, AUTO_KEEPALIVE_INTERVAL_MS);
+
+				addErrorEvent('appetize-autokeepalive', `started ${AUTO_KEEPALIVE_INTERVAL_MS / 1000}s interval (${reason})`);
+			}
+
+			function clearAutoAcceptRetryTimers() {
+				for (const timerId of autoAcceptRetryTimerIds) {
+					clearTimeout(timerId);
+				}
+				autoAcceptRetryTimerIds = [];
+			}
+
+			function scheduleAutoAcceptRetries(reason) {
+				clearAutoAcceptRetryTimers();
+				autoAcceptExpoGoPrompt(`${reason} immediate`);
+				for (let retry = 1; retry <= 3; retry += 1) {
+					const timerId = setTimeout(() => {
+						autoAcceptExpoGoPrompt(`${reason} retry ${retry}/3`);
+					}, retry * 5000);
+					autoAcceptRetryTimerIds.push(timerId);
+				}
+				addErrorEvent('appetize-autoaccept', `scheduled 3 retries every 5s (${reason})`);
+			}
+
+			async function loadAppetizeSdk() {
+				if (window.appetize?.getClient) return;
+				if (!appetizeSdkPromise) {
+					appetizeSdkPromise = new Promise((resolve, reject) => {
+						const existing = document.querySelector('script[data-appetize-sdk="true"]');
+						if (existing) {
+							existing.addEventListener('load', () => resolve(), { once: true });
+							existing.addEventListener('error', () => reject(new Error('failed to load Appetize SDK')), { once: true });
+							return;
+						}
+
+						const script = document.createElement('script');
+						script.src = 'https://js.appetize.io/embed.js';
+						script.async = true;
+						script.dataset.appetizeSdk = 'true';
+						script.onload = () => resolve();
+						script.onerror = () => reject(new Error('failed to load Appetize SDK'));
+						document.head.appendChild(script);
+					});
+				}
+				await appetizeSdkPromise;
+			}
+
+			async function ensureAppetizeClient() {
+				if (appetizeClient) return appetizeClient;
+				await loadAppetizeSdk();
+				if (!window.appetize?.getClient) {
+					throw new Error('Appetize SDK did not expose getClient');
+				}
+				appetizeClient = await window.appetize.getClient('#appetize-embed');
+				if (typeof appetizeClient?.on === 'function') {
+					appetizeClient.on('session', (session) => {
+						appetizeSession = session;
+						addErrorEvent('appetize-session', 'session started');
+					});
+				}
+				return appetizeClient;
+			}
+
+			async function ensureAppetizeSession() {
+				if (appetizeSession) return appetizeSession;
+				const client = await ensureAppetizeClient();
+				if (typeof client?.startSession !== 'function') {
+					throw new Error('Appetize client does not support startSession');
+				}
+				appetizeSession = await client.startSession();
+				return appetizeSession;
+			}
+
+			async function autoAcceptExpoGoPrompt(reason = 'auto') {
+				if (autoAcceptInFlight) {
+					autoAcceptQueuedReason = reason;
+					addErrorEvent('appetize-autoaccept', `queued while busy (${reason})`);
+					return;
+				}
+				autoAcceptInFlight = true;
+				try {
+					const session = await ensureAppetizeSession();
+					const targets = [
+						{ element: { attributes: { accessibilityIdentifier: 'dialog-confirm-button' } } },
+						{ element: { attributes: { text: 'Open' } } },
+						{ element: { attributes: { text: 'Open in Expo Go' } } },
+						{ element: { attributes: { accessibilityLabel: 'Open' } } },
+					];
+					const fallbackPositions = [
+						// iOS alert primary action (right button)
+						{ position: { x: '78%', y: '61%' } },
+						{ position: { x: '74%', y: '64%' } },
+						{ position: { x: '70%', y: '67%' } },
+						// centered/stacked action confirmations
+						{ position: { x: '50%', y: '66%' } },
+						{ position: { x: '50%', y: '74%' } },
+						// lower action-sheet style confirmations
+						{ position: { x: '50%', y: '86%' } },
+						{ position: { x: '78%', y: '86%' } },
+						{ position: { x: '72%', y: '62%' } },
+						{ position: { x: '68%', y: '64%' } },
+						{ position: { x: '74%', y: '66%' } },
+						{ position: { x: '60%', y: '64%' } },
+					];
+
+					for (const target of targets) {
+						try {
+							await session.tap(target, { timeout: 1500 });
+							addErrorEvent('appetize-autoaccept', `accepted prompt via SDK (${reason})`);
+							startAutoKeepAlive(`accepted via selector (${reason})`);
+							return;
+						} catch {
+							// try next selector
+						}
+					}
+
+					for (const tapTarget of fallbackPositions) {
+						try {
+							await session.tap(tapTarget);
+							addErrorEvent('appetize-autoaccept', `accepted prompt via positional tap (${reason})`);
+							startAutoKeepAlive(`accepted via position (${reason})`);
+							return;
+						} catch {
+							// try next fallback position
+						}
+					}
+
+					addErrorEvent('appetize-autoaccept', `no prompt found (${reason})`);
+				} catch (error) {
+					addErrorEvent('appetize-autoaccept', `failed: ${error?.message || String(error)}`);
+				} finally {
+					autoAcceptInFlight = false;
+					if (autoAcceptQueuedReason) {
+						const queuedReason = autoAcceptQueuedReason;
+						autoAcceptQueuedReason = null;
+						setTimeout(() => {
+							autoAcceptExpoGoPrompt(`${queuedReason} (queued)`);
+						}, 0);
+					}
+				}
 			}
 
 			function syncAppetizePreview(expUrl) {
@@ -324,9 +501,64 @@
 					return;
 				}
 				if (appetizeFrame.src !== embedUrl) {
+					resetAppetizeSdkState();
 					appetizeFrame.src = embedUrl;
+					scheduleAutoAcceptRetries('embed-load');
 				}
 				appetizeModeEl.textContent = `mode: embedding ${appetizeAppId}`;
+			}
+
+			function refreshAppetizeFrame() {
+				const effectiveExpUrl = snack?.getState?.()?.url || lastSnackExpUrl;
+				const embedUrl = buildAppetizeUrl(effectiveExpUrl);
+				if (!embedUrl) {
+					setStatus([
+						'Appetize refresh skipped: waiting for exp url',
+						statusEl.textContent || '',
+					]);
+					return;
+				}
+
+				const refreshUrl = new URL(embedUrl);
+				refreshUrl.searchParams.set('refreshNonce', String(Date.now()));
+
+				// Force a fresh embed load so we can test timeout and restart behavior.
+				resetAppetizeSdkState();
+				appetizeFrame.src = 'about:blank';
+				appetizeFrame.src = refreshUrl.toString();
+				appetizeModeEl.textContent = `mode: refreshed ${appetizeAppId}`;
+				addErrorEvent('appetize-refresh', `iframe reloaded at ${new Date().toLocaleTimeString()}`);
+				scheduleAutoAcceptRetries('manual-refresh');
+			}
+
+			async function keepAlivePingAppetize() {
+				if (!appetizeFrame || !appetizeFrame.contentWindow) {
+					setStatus([
+						'Keep Alive Ping skipped: Appetize iframe is not ready yet',
+						statusEl.textContent || '',
+					]);
+					return;
+				}
+
+				const timestamp = Date.now();
+
+				try {
+					const session = await ensureAppetizeSession();
+					if (typeof session?.tap === 'function') {
+						await session.tap({ position: { x: '50%', y: '82%' } });
+					}
+					if (typeof session?.heartbeat === 'function') {
+						await session.heartbeat();
+					}
+					appetizeModeEl.textContent = `mode: keepalive tap sent ${appetizeAppId || ''}`.trim();
+					addErrorEvent('appetize-keepalive', `tap+heartbeat sent at ${new Date(timestamp).toLocaleTimeString()}`);
+				} catch (error) {
+					addErrorEvent('appetize-keepalive', `tap failed: ${error?.message || String(error)}`);
+				}
+			}
+
+			function autoAcceptExpoNow() {
+				scheduleAutoAcceptRetries('manual-button');
 			}
 
 			async function probeAppetizeIdFromSnack() {
@@ -872,6 +1104,9 @@
 			document.getElementById('add-code-error-btn').addEventListener('click', addCodeError);
 			document.getElementById('online-btn').addEventListener('click', goOnline);
 			document.getElementById('offline-btn').addEventListener('click', goOffline);
+			document.getElementById('refresh-appetize-btn').addEventListener('click', refreshAppetizeFrame);
+			document.getElementById('keepalive-appetize-btn').addEventListener('click', keepAlivePingAppetize);
+			document.getElementById('autoaccept-appetize-btn').addEventListener('click', autoAcceptExpoNow);
 			clearErrorsBtn.addEventListener('click', () => {
 				errorEvents.length = 0;
 				renderErrors();
