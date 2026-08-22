@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Snack SDK Clean Test</title>
+		<style>
+			:root {
+				color-scheme: light;
+				--bg: #f5f7fa;
+				--panel: #ffffff;
+				--border: #d8dee6;
+				--text: #142033;
+				--muted: #4f5d72;
+				--accent: #0b73d9;
+			}
+
+			* { box-sizing: border-box; }
+
+			body {
+				margin: 0;
+				font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+				background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+				color: var(--text);
+			}
+
+			.layout {
+				max-width: 1140px;
+				margin: 24px auto;
+				padding: 0 16px;
+				display: grid;
+				grid-template-columns: 360px 1fr;
+				gap: 16px;
+			}
+
+			.panel {
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				box-shadow: 0 6px 18px rgba(14, 32, 58, 0.07);
+			}
+
+			.controls {
+				padding: 16px;
+			}
+
+			.controls h1 {
+				margin: 0 0 6px;
+				font-size: 18px;
+			}
+
+			.note {
+				margin: 0 0 14px;
+				font-size: 13px;
+				line-height: 1.45;
+				color: var(--muted);
+			}
+
+			.row {
+				display: flex;
+				gap: 8px;
+				margin-bottom: 10px;
+			}
+
+			button {
+				border: 1px solid var(--accent);
+				background: var(--accent);
+				color: #fff;
+				border-radius: 8px;
+				padding: 8px 12px;
+				font-size: 13px;
+				cursor: pointer;
+			}
+
+			button.secondary {
+				background: #fff;
+				color: var(--accent);
+			}
+
+			.status {
+				margin-top: 8px;
+				padding: 10px;
+				border-radius: 8px;
+				background: #f3f8ff;
+				border: 1px solid #cfe3ff;
+				font-size: 12px;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
+
+			.preview {
+				padding: 12px;
+			}
+
+			.error-panel {
+				max-width: 1140px;
+				margin: 0 auto 24px;
+				padding: 12px 16px;
+			}
+
+			.error-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 8px;
+				font-size: 13px;
+				color: var(--muted);
+			}
+
+			.error-list {
+				border: 1px solid #f2c7c7;
+				background: #fff7f7;
+				color: #6b1f1f;
+				border-radius: 8px;
+				padding: 10px;
+				font-size: 12px;
+				line-height: 1.4;
+				white-space: pre-wrap;
+				word-break: break-word;
+				min-height: 72px;
+				max-height: 220px;
+				overflow: auto;
+			}
+
+			.preview-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 10px;
+				font-size: 12px;
+				color: var(--muted);
+			}
+
+			.preview-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 12px;
+			}
+
+			.preview-card {
+				display: flex;
+				flex-direction: column;
+			}
+
+			.preview-surface {
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				overflow: hidden;
+				background: #fff;
+				min-height: 620px;
+				width: 300px;
+				margin-left: auto;
+				margin-right: auto;
+			}
+
+			iframe {
+				width: 100%;
+				height: 620px;
+				border: 0;
+				display: block;
+			}
+
+			@media (max-width: 980px) {
+				.layout {
+					grid-template-columns: 1fr;
+				}
+
+				.preview-grid {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main class="layout">
+			<section class="panel controls">
+				<h1>Snack SDK Standalone Test</h1>
+				<p class="note">
+					Minimal web harness that creates a Snack instance, injects app files,
+					and runs the official Snack web preview transport.
+				</p>
+
+				<div class="row">
+					<button id="init-btn">Init Snack</button>
+					<button id="update-btn" class="secondary">Update Code</button>
+					<button id="update-missing-btn" class="secondary">Update Missing Dep</button>
+					<button id="add-code-error-btn" class="secondary">Add Code Error</button>
+				</div>
+				<div class="row">
+					<button id="online-btn" class="secondary">Go Online</button>
+					<button id="offline-btn" class="secondary">Go Offline</button>
+				</div>
+
+				<div id="status" class="status">status: idle</div>
+			</section>
+
+			<section class="panel preview">
+				<div class="preview-grid">
+					<div class="preview-card">
+						<div class="preview-header">
+							<span>Snack Web Preview</span>
+							<span id="snack-preview-mode">mode: waiting</span>
+						</div>
+						<div class="preview-surface" id="snack-preview-root"></div>
+					</div>
+					<div class="preview-card">
+						<div class="preview-header">
+							<span>Appetize iPhone Preview</span>
+							<span id="appetize-preview-mode">mode: waiting</span>
+						</div>
+						<div class="preview-surface" id="appetize-preview-root"></div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<section class="panel error-panel">
+			<div class="error-header">
+				<span>Runtime Error Events</span>
+				<button id="clear-errors-btn" class="secondary">Clear Errors</button>
+			</div>
+			<div id="error-list" class="error-list">No errors captured yet.</div>
+		</section>
+
+		<script type="module">
+			import { Snack } from 'https://esm.sh/snack-sdk@6.6.2';
+
+			const statusEl = document.getElementById('status');
+			const snackModeEl = document.getElementById('snack-preview-mode');
+			const appetizeModeEl = document.getElementById('appetize-preview-mode');
+			const snackPreviewRoot = document.getElementById('snack-preview-root');
+			const appetizePreviewRoot = document.getElementById('appetize-preview-root');
+			const errorListEl = document.getElementById('error-list');
+			const clearErrorsBtn = document.getElementById('clear-errors-btn');
+
+			const snackPreviewFrame = document.createElement('iframe');
+			snackPreviewFrame.allow = 'geolocation *; camera *; microphone *; screen-wake-lock *';
+			snackPreviewRoot.appendChild(snackPreviewFrame);
+
+			const appetizeFrame = document.createElement('iframe');
+			appetizeFrame.allow = 'geolocation *; camera *; microphone *; screen-wake-lock *';
+			appetizePreviewRoot.appendChild(appetizeFrame);
+
+			let snack = null;
+			const errorEvents = [];
+			let lastFetchedFiles = null;
+			let isHealingDependencies = false;
+			let appetizeAppId = null;
+			let lastSnackExpUrl = null;
+
+			const BASE_DEPS = {
+				expo: { version: '~54.0.35' },
+				react: { version: '19.1.0' },
+				'react-native': { version: '0.81.5' },
+			};
+
+			const APPETIZE_ID_REGEX = /\b(b_[a-z0-9]{16,})\b/i;
+
+			const INTENTIONAL_MISSING_MODULES = new Set(['react-native-paper']);
+
+			function collectStringsDeep(value, output = []) {
+				if (value == null) return output;
+				if (typeof value === 'string') {
+					output.push(value);
+					return output;
+				}
+				if (Array.isArray(value)) {
+					for (const item of value) collectStringsDeep(item, output);
+					return output;
+				}
+				if (typeof value === 'object') {
+					for (const item of Object.values(value)) collectStringsDeep(item, output);
+				}
+				return output;
+			}
+
+			function extractAppetizeIdFromAny(value) {
+				const strings = collectStringsDeep(value);
+				for (const text of strings) {
+					const m = String(text).match(APPETIZE_ID_REGEX);
+					if (m && m[1]) return m[1];
+				}
+				return null;
+			}
+
+			function setAppetizeId(id, source) {
+				if (!id) return false;
+				if (appetizeAppId === id) return false;
+				appetizeAppId = id;
+				try {
+					localStorage.setItem('appetizeEmbedAppId', id);
+				} catch {
+					// ignore storage errors
+				}
+				addErrorEvent('appetize-discovery', `captured ${id} from ${source}`);
+				return true;
+			}
+
+			function findAndSetAppetizeId(value, source) {
+				const discovered = extractAppetizeIdFromAny(value);
+				return setAppetizeId(discovered, source);
+			}
+
+			function buildAppetizeUrl(expUrl) {
+				if (!appetizeAppId || !expUrl) return null;
+				const params = encodeURIComponent(JSON.stringify({
+					EXDevMenuDisableAutoLaunch: true,
+					EXKernelDisableNuxDefaultsKey: true,
+				}));
+				const launchUrl = encodeURIComponent(expUrl);
+				return `https://appetize.io/embed/${appetizeAppId}?device=iphone16pro&launchUrl=${launchUrl}&params=${params}&appearance=light&deviceColor=black&scale=auto&orientation=portrait&centered=both`;
+			}
+
+			function syncAppetizePreview(expUrl) {
+				if (expUrl) lastSnackExpUrl = expUrl;
+				const effectiveExpUrl = expUrl || lastSnackExpUrl;
+				const embedUrl = buildAppetizeUrl(effectiveExpUrl);
+				if (!embedUrl) {
+					appetizeModeEl.textContent = appetizeAppId
+						? 'mode: waiting for exp url'
+						: 'mode: waiting for appetize app id (b_...)';
+					return;
+				}
+				if (appetizeFrame.src !== embedUrl) {
+					appetizeFrame.src = embedUrl;
+				}
+				appetizeModeEl.textContent = `mode: embedding ${appetizeAppId}`;
+			}
+
+			async function probeAppetizeIdFromSnack() {
+				if (!snack) return;
+				try {
+					findAndSetAppetizeId(snack.getState(), 'snack.getState()');
+					findAndSetAppetizeId(snack.getState()?.connectedClients, 'snack.connectedClients');
+					const previews = await Promise.race([
+						snack.getPreviewAsync(),
+						new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
+					]);
+					findAndSetAppetizeId(previews, 'snack.getPreviewAsync()');
+				} catch {
+					// not fatal for harness
+				}
+				syncAppetizePreview(snack.getState()?.url);
+			}
+
+			function packageNameFromSpecifier(specifier) {
+				const raw = String(specifier || '').trim();
+				if (!raw || raw.startsWith('.') || raw.startsWith('/')) return null;
+				if (raw.startsWith('@')) {
+					const parts = raw.split('/');
+					if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+					return raw;
+				}
+				const first = raw.split('/')[0];
+				return first || null;
+			}
+
+			function collectImportedPackages(source) {
+				const text = String(source || '');
+				const matches = [];
+				const patterns = [
+					/\bimport\s+[^'"\n]+\s+from\s+['"]([^'"]+)['"]/g,
+					/\bexport\s+[^'"\n]*\s+from\s+['"]([^'"]+)['"]/g,
+					/\brequire\(\s*['"]([^'"]+)['"]\s*\)/g,
+				];
+				for (const pattern of patterns) {
+					let m;
+					while ((m = pattern.exec(text)) !== null) {
+						const pkg = packageNameFromSpecifier(m[1]);
+						if (pkg) matches.push(pkg);
+					}
+				}
+				return [...new Set(matches)];
+			}
+
+			function buildDependencyPlanFromFiles(files, options = {}) {
+				const includeIntentionalMissing = options.includeIntentionalMissing === true;
+				const packageJsonText = String(files['package.json'] || '{}');
+				let parsedPackage = {};
+				try {
+					parsedPackage = JSON.parse(packageJsonText);
+				} catch {
+					parsedPackage = {};
+				}
+
+				const declared = {
+					...(parsedPackage.dependencies || {}),
+				};
+
+				const dependencyPlan = {
+					...BASE_DEPS,
+				};
+
+				for (const [name, version] of Object.entries(declared)) {
+					if (!dependencyPlan[name]) {
+						dependencyPlan[name] = { version: String(version || '*') };
+					}
+				}
+
+				const imported = [
+					...collectImportedPackages(files['App.tsx']),
+					...collectImportedPackages(files['StatusPill.tsx']),
+					...collectImportedPackages(files['index.js']),
+				];
+
+				const addedFromImports = [];
+				for (const pkg of imported) {
+					if (!includeIntentionalMissing && INTENTIONAL_MISSING_MODULES.has(pkg)) {
+						continue;
+					}
+					if (!dependencyPlan[pkg]) {
+						dependencyPlan[pkg] = { version: '*' };
+						addedFromImports.push(pkg);
+					}
+				}
+
+				return { dependencyPlan, addedFromImports };
+			}
+
+			function upgradePlanFromMissingDependencies(plan, missingDependencies) {
+				const nextPlan = { ...plan };
+				const upgraded = [];
+				for (const [name, details] of Object.entries(missingDependencies || {})) {
+					if (!nextPlan[name]) continue;
+					if (nextPlan[name]?.version !== '*') continue;
+					const wanted = String(details?.wantedVersion || '').trim();
+					if (!wanted) continue;
+					nextPlan[name] = { ...nextPlan[name], version: wanted };
+					upgraded.push(`${name}@${wanted}`);
+				}
+				return { nextPlan, upgraded };
+			}
+
+			async function waitForStateWithTimeout(timeoutMs = 8000) {
+				return Promise.race([
+					snack.getStateAsync(),
+					new Promise((resolve) => {
+						setTimeout(() => resolve(snack.getState()), timeoutMs);
+					}),
+				]);
+			}
+
+			async function syncDependenciesFromPlan(plan, summaryPrefix) {
+				snack.updateDependencies(plan);
+				let state = await waitForStateWithTimeout();
+
+				const upgrade = upgradePlanFromMissingDependencies(plan, state.missingDependencies);
+				if (upgrade.upgraded.length) {
+					snack.updateDependencies(upgrade.nextPlan);
+					state = await waitForStateWithTimeout();
+				}
+
+				return {
+					state,
+					upgraded: upgrade.upgraded,
+					summary: `${summaryPrefix}${upgrade.upgraded.length ? ` | upgraded: ${upgrade.upgraded.join(', ')}` : ' | upgraded: (none)'}`,
+				};
+			}
+
+			function unresolvedModuleFromMessage(text) {
+				const m = String(text || '').match(/Unable to resolve module ['"]([^'"]+)['"]/i);
+				if (!m) return null;
+				return packageNameFromSpecifier(m[1]);
+			}
+
+			function classifyRuntimeMessage(text) {
+				const value = String(text || '');
+				if (/Unable to resolve module/i.test(value)) return 'module';
+				if (/ReferenceError|consol is not defined|Can't find variable/i.test(value)) return 'code-error';
+				if (/SyntaxError|Unexpected token|TransformError/i.test(value)) return 'syntax';
+				if (/IDBObjectStore|transaction is read-only/i.test(value)) return 'runtime-noise';
+				return 'message';
+			}
+
+			function setStatus(lines) {
+				const list = Array.isArray(lines) ? lines : [String(lines)];
+				statusEl.textContent = list.join('\n');
+			}
+
+			function renderErrors() {
+				if (!errorEvents.length) {
+					errorListEl.textContent = 'No errors captured yet.';
+					return;
+				}
+				errorListEl.textContent = errorEvents
+					.slice()
+					.reverse()
+					.map((entry) => `[${entry.time}] ${entry.source}: ${entry.message}`)
+					.join('\n\n');
+			}
+
+			function addErrorEvent(source, message) {
+				const text = String(message || '').trim();
+				if (!text) return;
+				errorEvents.push({
+					time: new Date().toLocaleTimeString(),
+					source,
+					message: text,
+				});
+				if (errorEvents.length > 40) {
+					errorEvents.splice(0, errorEvents.length - 40);
+				}
+				renderErrors();
+			}
+
+			function safeParseJson(value) {
+				if (typeof value !== 'string') return value;
+				try {
+					return JSON.parse(value);
+				} catch {
+					return value;
+				}
+			}
+
+			function summarizeRuntimeError(value) {
+				const parsed = safeParseJson(value);
+				if (parsed && typeof parsed === 'object' && parsed.message) {
+					const file = parsed.fileName ? ` (${parsed.fileName})` : '';
+					return `${parsed.message}${file}`;
+				}
+				const text = String(value || '').trim();
+				return text.length > 900 ? `${text.slice(0, 900)}...` : text;
+			}
+
+			function extractRuntimeMessage(payload) {
+				const data = safeParseJson(payload);
+				if (!data || typeof data !== 'object') return null;
+				if (data.type !== 'MESSAGE' || !data.message || typeof data.message !== 'object') return null;
+				if (data.message.type === 'ERROR' && data.message.error) {
+					return summarizeRuntimeError(data.message.error);
+				}
+				if (data.message.type === 'CONSOLE' && (data.message.method === 'error' || data.message.method === 'warn')) {
+					const payloadText = Array.isArray(data.message.payload)
+						? data.message.payload.map((item) => String(item)).join(' ')
+						: String(data.message.payload || '');
+					return `console.${data.message.method}: ${payloadText}`;
+				}
+				return null;
+			}
+
+			function createInitialFiles() {
+				return {
+					'App.tsx': {
+						type: 'CODE',
+						contents: [
+							"import React from 'react';",
+							"import { SafeAreaView, View, Text, StyleSheet } from 'react-native';",
+							'',
+							'export default function App() {',
+							'  return (',
+							'    <SafeAreaView style={styles.root}>',
+							'      <View style={styles.card}>',
+							"        <Text style={styles.title}>Snack SDK Test</Text>",
+							"        <Text style={styles.sub}>Hello from a clean standalone HTML app.</Text>",
+							'      </View>',
+							'    </SafeAreaView>',
+							'  );',
+							'}',
+							'',
+							'const styles = StyleSheet.create({',
+							"  root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f6f9fc' },",
+							"  card: { width: 320, borderRadius: 14, padding: 20, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e1ea' },",
+							"  title: { fontSize: 28, fontWeight: '700', color: '#0b73d9', marginBottom: 8 },",
+							"  sub: { fontSize: 17, color: '#3f4c60' },",
+							'});',
+							'',
+						].join('\n'),
+					},
+				};
+			}
+
+			function syncIframeUrlFromState() {
+				if (!snack) return;
+				const state = snack.getState();
+				const nextUrl = state.webPreviewURL || '';
+				if (nextUrl && snackPreviewFrame.src !== nextUrl) {
+					snackPreviewFrame.src = nextUrl;
+				}
+				snackModeEl.textContent = `mode: ${state.online ? 'online' : 'offline'}`;
+				syncAppetizePreview(state.url || null);
+				setStatus([
+					`online: ${state.online}`,
+					`sdk: ${state.sdkVersion}`,
+					`url: ${state.url || '(none)'}`,
+					`appetizeAppId: ${appetizeAppId || '(not discovered yet)'}`,
+					`webPreviewURL: ${state.webPreviewURL || '(pending)'}`,
+					`webPlayerURL: ${state.webPlayerURL || '(pending)'}`,
+				]);
+			}
+
+			async function initSnack() {
+				try {
+					if (snack) {
+						snack.setOnline(false);
+					}
+
+					snack = new Snack({
+						name: 'Snack SDK Clean Test',
+						sdkVersion: '54.0.0',
+						files: createInitialFiles(),
+						dependencies: {
+							...BASE_DEPS,
+							'expo-checkbox': { version: '*' },
+							'react-native-paper': { version: '*' },
+						},
+						webPreviewRef: { current: snackPreviewFrame.contentWindow },
+						supportedPlatforms: ['web'],
+						platform: 'web',
+					});
+
+					snack.addStateListener(() => syncIframeUrlFromState());
+					snack.addLogListener((log) => {
+						if (log.type === 'error') {
+							addErrorEvent('snack-log', log.message);
+						}
+					});
+
+					snack.setOnline(true);
+					await snack.getStateAsync();
+					syncIframeUrlFromState();
+					probeAppetizeIdFromSnack();
+				} catch (error) {
+					setStatus(`init failed: ${error?.message || String(error)}`);
+				}
+			}
+
+			async function updateCode(options = {}) {
+				if (!snack) {
+					setStatus('update skipped: initialize snack first');
+					return;
+				}
+				const includePaperDependency = options.includePaperDependency !== false;
+				const injectCodeError = options.injectCodeError === true;
+				const stamp = new Date().toLocaleTimeString();
+				const attemptedByFile = {};
+
+				async function fetchFirstOk(urls) {
+					for (const url of urls) {
+						try {
+							const res = await fetch(url, { credentials: 'omit' });
+							if (!res.ok) continue;
+							return { url, text: await res.text() };
+						} catch {
+							// try next
+						}
+					}
+					return null;
+				}
+
+				function fileCandidates(fileName) {
+					const fromSameDir = new URL(`./apps/my-test-app/${fileName}?raw`, window.location.href).toString();
+					const fromParentDir = new URL(`../test_snack/apps/my-test-app/${fileName}?raw`, window.location.href).toString();
+					const fromBase = new URL(`./test_snack/apps/my-test-app/${fileName}?raw`, window.location.href).toString();
+					return [...new Set([fromSameDir, fromParentDir, fromBase])];
+				}
+
+				const fileNames = ['App.tsx', 'StatusPill.tsx', 'index.js', 'package.json'];
+				const fileSources = {};
+				for (const fileName of fileNames) {
+					const candidates = fileCandidates(fileName);
+					attemptedByFile[fileName] = candidates;
+					fileSources[fileName] = await fetchFirstOk(candidates);
+				}
+
+				for (const [fileName, source] of Object.entries(fileSources)) {
+					if (!source) {
+						setStatus([
+							`update failed: could not fetch relative path for ${fileName}`,
+							`attempted: ${(attemptedByFile[fileName] || []).join(' | ')}`,
+						]);
+						return;
+					}
+				}
+
+				const normalized = Object.fromEntries(
+					Object.entries(fileSources).map(([fileName, source]) => [
+						fileName,
+						source.text
+							.replace(/\r\n/g, '\n')
+							.replace(/\r/g, '\n')
+							.replace(/##TIMESTAMP##/g, stamp),
+					])
+				);
+
+				if (!includePaperDependency) {
+					snack.updateDependencies({
+						'react-native-paper': null,
+					});
+
+					normalized['package.json'] = normalized['package.json'].replace(
+						/^\s*"react-native-paper"\s*:\s*"[^"]+",\n?/m,
+						''
+					);
+				}
+
+				if (injectCodeError) {
+					const marker = 'INTENTIONAL_CODE_ERROR';
+					if (!normalized['App.tsx'].includes(marker)) {
+						const injection = `\nconsol.log("error"); // ${marker}\n`;
+						if (/import StatusPill from ['"]\.\/StatusPill['"];\n/.test(normalized['App.tsx'])) {
+							normalized['App.tsx'] = normalized['App.tsx'].replace(
+								/import StatusPill from ['"]\.\/StatusPill['"];\n/,
+								(match) => `${match}${injection}`
+							);
+						} else {
+							normalized['App.tsx'] = `${injection}${normalized['App.tsx']}`;
+						}
+					}
+				}
+
+				const plan = buildDependencyPlanFromFiles(normalized, {
+					includeIntentionalMissing: includePaperDependency,
+				});
+
+				const depSync = await syncDependenciesFromPlan(
+					plan.dependencyPlan,
+					`dependency-scan added: ${plan.addedFromImports.length ? plan.addedFromImports.join(', ') : '(none)'}`
+				);
+
+				snack.updateFiles({
+					'App.tsx': {
+						type: 'CODE',
+						contents: normalized['App.tsx'],
+					},
+					'StatusPill.tsx': {
+						type: 'CODE',
+						contents: normalized['StatusPill.tsx'],
+					},
+					'index.js': {
+						type: 'CODE',
+						contents: normalized['index.js'],
+					},
+					'package.json': {
+						type: 'CODE',
+						contents: normalized['package.json'],
+					},
+				});
+				lastFetchedFiles = { ...normalized };
+				syncIframeUrlFromState();
+				probeAppetizeIdFromSnack();
+				setStatus([
+					`test-mode: ${injectCodeError ? 'intentional code error injected' : includePaperDependency ? 'all dependencies included' : 'react-native-paper intentionally missing'}`,
+					depSync.summary,
+					`updated App.tsx from: ${fileSources['App.tsx'].url}`,
+					`updated StatusPill.tsx from: ${fileSources['StatusPill.tsx'].url}`,
+					`updated index.js from: ${fileSources['index.js'].url}`,
+					`updated package.json from: ${fileSources['package.json'].url}`,
+					`timestamp: ${stamp}`,
+					`bytes: App=${normalized['App.tsx'].length}, StatusPill=${normalized['StatusPill.tsx'].length}, index=${normalized['index.js'].length}, package=${normalized['package.json'].length}`,
+					statusEl.textContent || '',
+				]);
+			}
+
+			async function healDependencies() {
+				if (!snack) {
+					setStatus('heal skipped: initialize snack first');
+					return;
+				}
+				if (!lastFetchedFiles) {
+					setStatus('heal note: no fetched files yet, running normal Update Code first');
+					await updateCode({ includePaperDependency: true });
+					return;
+				}
+
+				const plan = buildDependencyPlanFromFiles(lastFetchedFiles, {
+					includeIntentionalMissing: true,
+				});
+				const depSync = await syncDependenciesFromPlan(
+					plan.dependencyPlan,
+					`heal-added: ${plan.addedFromImports.length ? plan.addedFromImports.join(', ') : '(none)'}`
+				);
+				syncIframeUrlFromState();
+				setStatus([
+					'heal: dependency plan pushed from package.json + imports',
+					depSync.summary,
+					statusEl.textContent || '',
+				]);
+				probeAppetizeIdFromSnack();
+			}
+
+			function goOnline() {
+				if (!snack) return;
+				snack.setOnline(true);
+				syncIframeUrlFromState();
+			}
+
+			function goOffline() {
+				if (!snack) return;
+				snack.setOnline(false);
+				syncIframeUrlFromState();
+			}
+
+			function updateWithMissingDep() {
+				return updateCode({ includePaperDependency: false });
+			}
+
+			function addCodeError() {
+				return updateCode({ includePaperDependency: true, injectCodeError: true });
+			}
+
+			window.addEventListener('message', (event) => {
+				findAndSetAppetizeId(event.data, `postMessage origin ${event.origin || '(unknown)'}`);
+				if (!String(event.origin || '').includes('snack-runtime.eascdn.net')) return;
+				const runtimeMessage = extractRuntimeMessage(event.data);
+				if (runtimeMessage) {
+					const runtimeCategory = classifyRuntimeMessage(runtimeMessage);
+					addErrorEvent(`runtime-${runtimeCategory}`, runtimeMessage);
+					if (runtimeCategory === 'code-error' || runtimeCategory === 'syntax') {
+						setStatus([
+							`detected ${runtimeCategory} from runtime output`,
+							runtimeMessage,
+						]);
+					}
+					const unresolved = unresolvedModuleFromMessage(runtimeMessage);
+					if (unresolved && !isHealingDependencies) {
+						isHealingDependencies = true;
+						setStatus([
+							`detected unresolved module: ${unresolved}`,
+							'intent: auto-heal dependencies from package.json + imports',
+						]);
+						healDependencies()
+							.catch((error) => {
+								addErrorEvent('auto-heal', error?.message || String(error));
+							})
+							.finally(() => {
+								isHealingDependencies = false;
+							});
+					}
+				}
+			});
+
+			window.addEventListener('error', (event) => {
+				if (event.message) {
+					addErrorEvent('window-error', event.message);
+				}
+			});
+
+			window.addEventListener('unhandledrejection', (event) => {
+				addErrorEvent('unhandled-rejection', event.reason || 'unknown rejection');
+			});
+
+			const initialParamId = new URL(window.location.href).searchParams.get('appetizeAppId');
+			if (initialParamId) setAppetizeId(initialParamId, 'query param appetizeAppId');
+			if (!appetizeAppId) {
+				try {
+					setAppetizeId(localStorage.getItem('appetizeEmbedAppId'), 'localStorage appetizeEmbedAppId');
+				} catch {
+					// ignore
+				}
+			}
+			syncAppetizePreview(null);
+
+			document.getElementById('init-btn').addEventListener('click', initSnack);
+			document.getElementById('update-btn').addEventListener('click', updateCode);
+			document.getElementById('update-missing-btn').addEventListener('click', updateWithMissingDep);
+			document.getElementById('add-code-error-btn').addEventListener('click', addCodeError);
+			document.getElementById('online-btn').addEventListener('click', goOnline);
+			document.getElementById('offline-btn').addEventListener('click', goOffline);
+			clearErrorsBtn.addEventListener('click', () => {
+				errorEvents.length = 0;
+				renderErrors();
+			});
+
+			setStatus('status: click "Init Snack" to start');
+			renderErrors();
+		</script>
+	</body>
+</html>
