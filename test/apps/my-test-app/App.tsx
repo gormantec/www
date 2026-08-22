@@ -1,6 +1,7 @@
 import React from 'react';
-import { SafeAreaView, View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Checkbox from 'expo-checkbox';
+import { StatusBar } from 'expo-status-bar';
 import {
   Appbar,
   Button as PaperButton,
@@ -8,49 +9,69 @@ import {
   Divider,
   PaperProvider,
 } from 'react-native-paper';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusPill from './StatusPill';
 
+const APP_BAR_HEIGHT = 56;
 
-export default function App() {
+function Screen() {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <View style={styles.scaffold}>
+        <Appbar.Header mode="small" statusBarHeight={insets.top} style={styles.appBar}>
+          <Appbar.Content title="Snack SDK Demo" subtitle="Scaffold + App Bar" />
+          <Appbar.Action icon="refresh" onPress={() => {}} />
+        </Appbar.Header>
+
+        <ScrollView contentContainerStyle={styles.content}>
+          <Card style={styles.card} mode="outlined">
+            <Card.Content>
+              <Text style={styles.title}>Updated from Snack SDK</Text>
+              <Text style={styles.sub}>Updated at ##TIMESTAMP##</Text>
+              <StatusPill label="Dependency widget test active" />
+            </Card.Content>
+          </Card>
+
+          <InteractiveSection />
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+function InteractiveSection() {
   const [checked, setChecked] = React.useState(false);
 
   return (
-    <PaperProvider>
-      <SafeAreaView style={styles.root}>
-        <View style={styles.scaffold}>
-          <Appbar.Header style={styles.appBar}>
-            <Appbar.Content title="Snack SDK Demo" subtitle="Scaffold + App Bar" />
-            <Appbar.Action icon="refresh" onPress={() => setChecked(false)} />
-          </Appbar.Header>
-
-          <ScrollView contentContainerStyle={styles.content}>
-            <Card style={styles.card} mode="outlined">
-              <Card.Content>
-                <Text style={styles.title}>Updated from Snack SDK</Text>
-                <Text style={styles.sub}>Updated at ##TIMESTAMP##</Text>
-                <StatusPill label="Dependency widget test active" />
-              </Card.Content>
-            </Card>
-
-            <Card style={styles.card} mode="outlined">
-              <Card.Content>
-                <Text style={styles.sectionTitle}>Interactive controls</Text>
-                <Divider style={styles.divider} />
-                <View style={styles.checkboxRow}>
-                  <Checkbox value={checked} onValueChange={setChecked} color={checked ? '#0b73d9' : undefined} />
-                  <Text style={styles.checkLabel}>{checked ? 'Checkbox checked' : 'Checkbox unchecked'}</Text>
-                </View>
-                <View style={styles.paperWrap}>
-                  <Text style={styles.paperLabel}>react-native-paper dependency:</Text>
-                  <PaperButton mode="contained" onPress={() => setChecked((value) => !value)}>
-                    Toggle checkbox state
-                  </PaperButton>
-                </View>
-              </Card.Content>
-            </Card>
-          </ScrollView>
+    <Card style={styles.card} mode="outlined">
+      <Card.Content>
+        <Text style={styles.sectionTitle}>Interactive controls</Text>
+        <Divider style={styles.divider} />
+        <View style={styles.checkboxRow}>
+          <Checkbox value={checked} onValueChange={setChecked} color={checked ? '#0b73d9' : undefined} />
+          <Text style={styles.checkLabel}>{checked ? 'Checkbox checked' : 'Checkbox unchecked'}</Text>
         </View>
-      </SafeAreaView>
+        <View style={styles.paperWrap}>
+          <Text style={styles.paperLabel}>react-native-paper dependency:</Text>
+          <PaperButton mode="contained" onPress={() => setChecked((value) => !value)}>
+            Toggle checkbox state
+          </PaperButton>
+        </View>
+      </Card.Content>
+    </Card>
+  );
+}
+
+
+export default function App() {
+  return (
+    <PaperProvider>
+      <SafeAreaProvider>
+        <Screen />
+      </SafeAreaProvider>
     </PaperProvider>
   );
 }
@@ -58,7 +79,7 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#eef8ff' },
   scaffold: { flex: 1 },
-  appBar: { backgroundColor: '#0b73d9' },
+  appBar: { backgroundColor: '#0b73d9', minHeight: APP_BAR_HEIGHT },
   content: { padding: 14, gap: 12 },
   card: {
     borderRadius: 14,
