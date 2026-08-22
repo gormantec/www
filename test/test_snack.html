@@ -189,7 +189,6 @@
 				<div class="row">
 					<button id="online-btn" class="secondary">Go Online</button>
 					<button id="offline-btn" class="secondary">Go Offline</button>
-					<button id="refresh-appetize-btn" class="secondary">Refresh Appetize</button>
 					<button id="keepalive-appetize-btn" class="secondary">Keep Alive Ping</button>
 					<button id="autoaccept-appetize-btn" class="secondary">Auto Accept Expo Now</button>
 				</div>
@@ -506,29 +505,6 @@
 					scheduleAutoAcceptRetries('embed-load');
 				}
 				appetizeModeEl.textContent = `mode: embedding ${appetizeAppId}`;
-			}
-
-			function refreshAppetizeFrame() {
-				const effectiveExpUrl = snack?.getState?.()?.url || lastSnackExpUrl;
-				const embedUrl = buildAppetizeUrl(effectiveExpUrl);
-				if (!embedUrl) {
-					setStatus([
-						'Appetize refresh skipped: waiting for exp url',
-						statusEl.textContent || '',
-					]);
-					return;
-				}
-
-				const refreshUrl = new URL(embedUrl);
-				refreshUrl.searchParams.set('refreshNonce', String(Date.now()));
-
-				// Force a fresh embed load so we can test timeout and restart behavior.
-				resetAppetizeSdkState();
-				appetizeFrame.src = 'about:blank';
-				appetizeFrame.src = refreshUrl.toString();
-				appetizeModeEl.textContent = `mode: refreshed ${appetizeAppId}`;
-				addErrorEvent('appetize-refresh', `iframe reloaded at ${new Date().toLocaleTimeString()}`);
-				scheduleAutoAcceptRetries('manual-refresh');
 			}
 
 			async function keepAlivePingAppetize() {
@@ -1104,7 +1080,6 @@
 			document.getElementById('add-code-error-btn').addEventListener('click', addCodeError);
 			document.getElementById('online-btn').addEventListener('click', goOnline);
 			document.getElementById('offline-btn').addEventListener('click', goOffline);
-			document.getElementById('refresh-appetize-btn').addEventListener('click', refreshAppetizeFrame);
 			document.getElementById('keepalive-appetize-btn').addEventListener('click', keepAlivePingAppetize);
 			document.getElementById('autoaccept-appetize-btn').addEventListener('click', autoAcceptExpoNow);
 			clearErrorsBtn.addEventListener('click', () => {
