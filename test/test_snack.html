@@ -245,6 +245,7 @@
 			const errorEvents = [];
 			let lastFetchedFiles = null;
 			let isHealingDependencies = false;
+			const FORCE_VERBOSE_WEB_PREVIEW = true;
 			const DEFAULT_APPETIZE_APP_ID = 'b_gyvl6mdc7q6bjerdqpo7zm5hii';
 			let appetizeAppId = DEFAULT_APPETIZE_APP_ID;
 			let lastSnackExpUrl = null;
@@ -570,10 +571,22 @@
 				};
 			}
 
+			function toVerboseWebPreviewUrl(rawUrl) {
+				if (!rawUrl) return '';
+				if (!FORCE_VERBOSE_WEB_PREVIEW) return rawUrl;
+				try {
+					const url = new URL(rawUrl);
+					url.searchParams.set('verbose', 'true');
+					return url.toString();
+				} catch {
+					return rawUrl;
+				}
+			}
+
 			function syncIframeUrlFromState() {
 				if (!snack) return;
 				const state = snack.getState();
-				const nextUrl = state.webPreviewURL || '';
+				const nextUrl = toVerboseWebPreviewUrl(state.webPreviewURL || '');
 				if (nextUrl && snackPreviewFrame.src !== nextUrl) {
 					snackPreviewFrame.src = nextUrl;
 				}
@@ -584,7 +597,9 @@
 					`sdk: ${state.sdkVersion}`,
 					`url: ${state.url || '(none)'}`,
 					`appetizeAppId: ${appetizeAppId || '(not discovered yet)'}`,
+					`forcedVerbose: ${FORCE_VERBOSE_WEB_PREVIEW}`,
 					`webPreviewURL: ${state.webPreviewURL || '(pending)'}`,
+					`effectiveWebPreviewURL: ${nextUrl || '(pending)'}`,
 					`webPlayerURL: ${state.webPlayerURL || '(pending)'}`,
 				]);
 			}
