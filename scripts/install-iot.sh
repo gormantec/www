@@ -492,7 +492,7 @@ if $YES_MODE; then
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
     NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN_DEFAULT}"
-    DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}"
+    DOCDB_NAS_SERVER="${DOCDB_NAS_SERVER_DEFAULT:-192.168.8.14}"
     DOCDB_NAS_ROOT="${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}"
     DOCDB_NAS_PROTOCOL="${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}"
     DOCDB_NAS_USERNAME="${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}"
@@ -585,7 +585,7 @@ else
     IMAGE_NAME=$(ask "Docker image name" "${IMAGE_NAME_DEFAULT:-gormantec/docker-iot}")
     READ_PACKAGES_GITHUB_PAT="$GITHUB_PAT"
     GITHUB_TOKEN="$GITHUB_PAT"
-    DOCDB_NAS_SERVER=$(ask "NAS server hostname" "${DOCDB_NAS_SERVER_DEFAULT:-synologynas.local}")
+    DOCDB_NAS_SERVER=$(ask "NAS server IP address" "${DOCDB_NAS_SERVER_DEFAULT:-192.168.8.14}")
     DOCDB_NAS_ROOT=$(ask "NAS share root path" "${DOCDB_NAS_ROOT_DEFAULT:-/docker-iot/docker-share}")
     DOCDB_NAS_PROTOCOL=$(ask "NAS protocol (cifs/nfs)" "${DOCDB_NAS_PROTOCOL_DEFAULT:-cifs}")
     DOCDB_NAS_USERNAME=$(ask "NAS username" "${DOCDB_NAS_USERNAME_DEFAULT:-docker-iot}")
@@ -833,10 +833,57 @@ fi
 
 # Create env.json directly in the Docker volume mountpoint used by the service.
 # This canonical host path maps to /usr/src/app/data/env.json inside the container.
+#
+# The volume is created NAS-backed when the NAS is configured. This matters:
+# a plain local volume only exists on one node, so a Swarm leadership change
+# silently brings the control plane up with an empty data directory (losing the
+# CA, device certs, TLS keys and env.json). It is also per-node, so a container
+# rescheduled to another node gets a fresh empty directory.
 VOLUME_NAME="docker-iot-data"
 if ! docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
-    docker volume create "$VOLUME_NAME" >/dev/null
-    echo "  ${GREEN}✓${NC} Docker volume '$VOLUME_NAME' created"
+    _nas_vol_created=false
+    if [ -n "$DOCDB_NAS_SERVER" ] && [ -n "$DOCDB_NAS_ROOT" ]; then
+        _nas_protocol="$(printf '%s' "$DOCDB_NAS_PROTOCOL" | tr '[:upper:]' '[:lower:]')"
+        _nas_subdir="${DOCDB_NAS_ROOT%/}/volumes/${VOLUME_NAME}"
+        _stage="iot-install-share-root"
+        if [ "$_nas_protocol" = "cifs" ]; then
+            _nas_device="//${DOCDB_NAS_SERVER}/${_nas_subdir#/}"
+            _nas_opts="vers=3.0,noserverino,noperm,username=${DOCDB_NAS_USERNAME},password=${NAS_PASSWORD}"
+            _share_device="//${DOCDB_NAS_SERVER}/${DOCDB_NAS_ROOT#/}"
+        else
+            _nas_device=":${_nas_subdir}"
+            _nas_opts="addr=${DOCDB_NAS_SERVER},rw,nfsvers=${DOCDB_NAS_NFSVERS:-3},noatime"
+            _share_device=":${DOCDB_NAS_ROOT%/}"
+        fi
+        # CIFS/NFS mount a specific directory and fail if it does not exist, so
+        # create it over a share-root mount first.
+        docker volume rm -f "$_stage" >/dev/null 2>&1 || true
+        if docker volume create --driver local \
+             --opt "type=$_nas_protocol" --opt "o=$_nas_opts" --opt "device=$_share_device" \
+             "$_stage" >/dev/null 2>&1 \
+           && docker run --rm -v "$_stage:/share" alpine \
+                sh -c "mkdir -p '/share/${_nas_subdir#${DOCDB_NAS_ROOT%/}/}'" >/dev/null 2>&1; then
+            docker volume rm -f "$_stage" >/dev/null 2>&1 || true
+            if docker volume create --driver local \
+                 --opt "type=$_nas_protocol" --opt "o=$_nas_opts" --opt "device=$_nas_device" \
+                 "$VOLUME_NAME" >/dev/null 2>&1 \
+               && docker run --rm -v "$VOLUME_NAME:/probe" alpine true >/dev/null 2>&1; then
+                _nas_vol_created=true
+                echo "  ${GREEN}✓${NC} Docker volume '$VOLUME_NAME' created on NAS ($_nas_subdir)"
+            else
+                docker volume rm -f "$VOLUME_NAME" >/dev/null 2>&1 || true
+                echo "  ${YELLOW}⚠${NC}  Could not mount NAS volume '$VOLUME_NAME' — falling back to local"
+            fi
+        else
+            docker volume rm -f "$_stage" >/dev/null 2>&1 || true
+            echo "  ${YELLOW}⚠${NC}  Could not reach the NAS share — falling back to local volume"
+        fi
+    fi
+    if ! $_nas_vol_created; then
+        docker volume create "$VOLUME_NAME" >/dev/null
+        echo "  ${YELLOW}⚠${NC}  Docker volume '$VOLUME_NAME' created LOCAL (not NAS-backed)"
+        echo "      It will not be shared between nodes — see docs/nas-volumes.md"
+    fi
 fi
 
 if $IS_ROOT; then
