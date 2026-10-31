@@ -412,7 +412,74 @@ else
     echo "  ${GREEN}✓${NC} User 'docker' created and added to docker group"
 fi
 
+# ── Bootstrap vault ─────────────────────────────────────────────
+# The handful of credentials needed BEFORE docker-iot can reach the tenant
+# secrets store. They need one maintained home that is not inside a Docker
+# volume, because env.json is a disaster-recovery snapshot: restoring it and
+# re-running this installer is a supported path, which also means it may be
+# old. A stale snapshot must never silently outrank the operator's current
+# values - on 2026-10-31 an old env.json re-seeded the pre-rotation DocumentDB
+# password on every deploy, the server 401'd itself into safe-stop, and the
+# pass ran for hours because compose looked correct.
+#
+# Precedence: vault > env.json > ./.env. env.json is still written at the end
+# (it is the DR artefact) but only from the resolved values.
+VAULT_FILE="${IOT_VAULT:-}"
+if [ -z "$VAULT_FILE" ]; then
+    for _vault_candidate in "$HOME/.config/iot/bootstrap.env" /etc/docker-iot/bootstrap.env; do
+        if [ -r "$_vault_candidate" ]; then
+            VAULT_FILE="$_vault_candidate"
+            break
+        fi
+    done
+fi
+
+# Print one KEY=value from the vault. Values are never echoed by callers.
+vault_get() {
+    _vk="$1"
+    if [ -z "$VAULT_FILE" ] || [ ! -r "$VAULT_FILE" ]; then
+        printf ''
+        return 0
+    fi
+    while IFS='=' read -r _vn _vv; do
+        case "$_vn" in ''|'#'*) continue ;; esac
+        _vn="${_vn#export }"
+        _vn="$(printf '%s' "$_vn" | tr -d ' \t')"
+        if [ "$_vn" = "$_vk" ]; then
+            printf '%s' "$_vv"
+            return 0
+        fi
+    done < "$VAULT_FILE"
+    printf ''
+}
+
+# Vault wins over env.json; disagreeing sources are reported, not hidden.
+resolve_default() {
+    _rk="$1"
+    _rv_envjson="$2"
+    _rv_vault="$(vault_get "$_rk")"
+    case "$_rv_vault" in
+        ""|"null"|"undefined")
+            printf '%s' "$_rv_envjson"
+            ;;
+        *)
+            if [ -n "$_rv_envjson" ] && [ "$_rv_envjson" != "$_rv_vault" ]; then
+                echo "  ${YELLOW}⚠${NC}  $_rk: vault and env.json disagree — using the vault" >&2
+            fi
+            printf '%s' "$_rv_vault"
+            ;;
+    esac
+}
+
 load_existing_env
+
+if [ -n "$VAULT_FILE" ]; then
+    echo "  ${GREEN}✓${NC} Bootstrap vault: $VAULT_FILE"
+else
+    echo "  ${YELLOW}⚠${NC}  No bootstrap vault found — credentials come from env.json only"
+    echo "      Create one so a stale DR snapshot cannot outrank it:"
+    echo "        mkdir -p ~/.config/iot && umask 077 && \$EDITOR ~/.config/iot/bootstrap.env"
+fi
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
 NODE_AUTH_TOKEN_DEFAULT="$(json_get_value 'NODE_AUTH_TOKEN')"
@@ -444,8 +511,25 @@ NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSW
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
 SYNOLOGY_DB_PASS_DEFAULT="$(sanitize_loaded_default 'SYNOLOGY_DB_PASS' "$SYNOLOGY_DB_PASS_DEFAULT")"
 
+# The vault is authoritative for every bootstrap credential. env.json stays as
+# the disaster-recovery snapshot and is only used where the vault is silent.
+TUNNEL_TOKEN_DEFAULT="$(resolve_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
+NODE_AUTH_TOKEN_DEFAULT="$(resolve_default 'NODE_AUTH_TOKEN' "$NODE_AUTH_TOKEN_DEFAULT")"
+CLOUDFLARE_API_TOKEN_DEFAULT="$(resolve_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
+CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(resolve_default 'CLOUDFLARE_ACCOUNT_ID' "$CLOUDFLARE_ACCOUNT_ID_DEFAULT")"
+GITHUB_PAT_DEFAULT="$(resolve_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
+NAS_PASSWORD_DEFAULT="$(resolve_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
+DOCDB_IOT_PASS_DEFAULT="$(resolve_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
+SYNOLOGY_DB_PASS_DEFAULT="$(resolve_default 'SYNOLOGY_DB_PASS' "$SYNOLOGY_DB_PASS_DEFAULT")"
+
 if [ -z "$SYNOLOGY_DB_PASS_DEFAULT" ]; then
+    # Legacy snapshots predate SYNOLOGY_DB_PASS: it used to be derived from the
+    # NAS password on the assumption that they were one credential. They are
+    # not, and deriving it silently replaced the correct MariaDB password with
+    # the NAS one. Keep the fallback so a genuine DR restore still completes,
+    # but say so out loud.
     SYNOLOGY_DB_PASS_DEFAULT="$NAS_PASSWORD_DEFAULT"
+    echo "  ${YELLOW}⚠${NC}  SYNOLOGY_DB_PASS absent from vault and env.json — falling back to the NAS password. Put the real MariaDB password in the vault."
 fi
 ROOT_DOMAIN_DEFAULT="$(sanitize_loaded_default 'ROOT_DOMAIN' "$ROOT_DOMAIN_DEFAULT")"
 GATEKEEPER_SECRET_DEFAULT="$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")"
@@ -1178,8 +1262,11 @@ echo "${GREEN}   docker-iot installed!${NC}"
 echo "${GREEN}============================================${NC}"
 echo ""
 echo "  Configuration saved to: $ENV_FILE"
-echo "  ${RED}IMPORTANT:${NC} This file will be deleted once DocDB is established."
-echo "  Store these values securely before then."
+echo "  ${RED}IMPORTANT:${NC} This file is the DISASTER-RECOVERY snapshot. It is"
+echo "  seeded back into a fresh install, so it must match the bootstrap vault."
+echo "  Rotate credentials in $VAULT_FILE (or ~/.config/iot/bootstrap.env),"
+echo "  never here — the vault wins, and a stale copy here is how the"
+echo "  2026-10-31 safe-stop loop started."
 echo ""
 echo "  Useful commands:"
 echo "    docker service ls          # List Swarm services"
