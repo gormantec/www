@@ -483,8 +483,6 @@ fi
 
 TUNNEL_TOKEN_DEFAULT="$(json_get_value 'TUNNEL_TOKEN')"
 NODE_AUTH_TOKEN_DEFAULT="$(json_get_value 'NODE_AUTH_TOKEN')"
-CLOUDFLARE_API_TOKEN_DEFAULT="$(json_get_value 'CLOUDFLARE_API_TOKEN')"
-CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(json_get_value 'CLOUDFLARE_ACCOUNT_ID')"
 GITHUB_PAT_DEFAULT="$(json_get_value 'READ_PACKAGES_GITHUB_PAT')"
 NAS_PASSWORD_DEFAULT="$(json_get_value 'DOCDB_NAS_PASSWORD')"
 DOCDB_IOT_PASS_DEFAULT="$(json_get_value 'DOCDB_IOT_PASS')"
@@ -504,8 +502,6 @@ DOCDB_NAS_USERNAME_DEFAULT="$(json_get_value 'DOCDB_NAS_USERNAME')"
 
 TUNNEL_TOKEN_DEFAULT="$(sanitize_loaded_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
 NODE_AUTH_TOKEN_DEFAULT="$(sanitize_loaded_default 'NODE_AUTH_TOKEN' "$NODE_AUTH_TOKEN_DEFAULT")"
-CLOUDFLARE_API_TOKEN_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
-CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(sanitize_loaded_default 'CLOUDFLARE_ACCOUNT_ID' "$CLOUDFLARE_ACCOUNT_ID_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(sanitize_loaded_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(sanitize_loaded_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(sanitize_loaded_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
@@ -515,8 +511,6 @@ SYNOLOGY_DB_PASS_DEFAULT="$(sanitize_loaded_default 'SYNOLOGY_DB_PASS' "$SYNOLOG
 # the disaster-recovery snapshot and is only used where the vault is silent.
 TUNNEL_TOKEN_DEFAULT="$(resolve_default 'TUNNEL_TOKEN' "$TUNNEL_TOKEN_DEFAULT")"
 NODE_AUTH_TOKEN_DEFAULT="$(resolve_default 'NODE_AUTH_TOKEN' "$NODE_AUTH_TOKEN_DEFAULT")"
-CLOUDFLARE_API_TOKEN_DEFAULT="$(resolve_default 'CLOUDFLARE_API_TOKEN' "$CLOUDFLARE_API_TOKEN_DEFAULT")"
-CLOUDFLARE_ACCOUNT_ID_DEFAULT="$(resolve_default 'CLOUDFLARE_ACCOUNT_ID' "$CLOUDFLARE_ACCOUNT_ID_DEFAULT")"
 GITHUB_PAT_DEFAULT="$(resolve_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DEFAULT")"
 NAS_PASSWORD_DEFAULT="$(resolve_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(resolve_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
@@ -558,8 +552,6 @@ if $YES_MODE; then
 
     TUNNEL_TOKEN=$(require_value "Cloudflare Tunnel token" "$TUNNEL_TOKEN_DEFAULT")
     GITHUB_PAT=$(require_value "GitHub PAT (read:packages)" "$GITHUB_PAT_DEFAULT")
-    CLOUDFLARE_API_TOKEN=$(require_value "Cloudflare API token" "$CLOUDFLARE_API_TOKEN_DEFAULT")
-    CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
     NAS_PASSWORD=$(require_value "NAS password" "$NAS_PASSWORD_DEFAULT")
     DOCDB_IOT_PASS=$(require_value "Internal DocDB password" "$DOCDB_IOT_PASS_DEFAULT")
     SYNOLOGY_DB_PASS=$(require_value "Synology MariaDB password" "$SYNOLOGY_DB_PASS_DEFAULT")
@@ -583,7 +575,6 @@ if $YES_MODE; then
 
     echo "  ${GREEN}✓${NC} TUNNEL_TOKEN       = *****"
     echo "  ${GREEN}✓${NC} NODE_AUTH_TOKEN     = $( [ -n "$NODE_AUTH_TOKEN" ] && echo '*****' || echo '(not set)' )"
-    echo "  ${GREEN}✓${NC} CLOUDFLARE_API_TOKEN = *****"
     echo "  ${GREEN}✓${NC} NAS_PASSWORD        = *****"
     echo "  ${GREEN}✓${NC} DOCDB_IOT_PASS      = *****"
     echo "  ${GREEN}✓${NC} SYNOLOGY_DB_PASS    = *****"
@@ -620,14 +611,6 @@ else
         fi
     done
 
-    CLOUDFLARE_API_TOKEN=""
-    while [ -z "$CLOUDFLARE_API_TOKEN" ]; do
-        CLOUDFLARE_API_TOKEN=$(ask "Cloudflare API token" "$CLOUDFLARE_API_TOKEN_DEFAULT" "secret")
-        if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "  ${RED}⚠  CLOUDFLARE_API_TOKEN is required${NC}"
-        fi
-    done
-
     NAS_PASSWORD=""
     while [ -z "$NAS_PASSWORD" ]; do
         NAS_PASSWORD=$(ask "NAS password" "$NAS_PASSWORD_DEFAULT" "secret")
@@ -651,8 +634,6 @@ else
             echo "  ${RED}⚠  Synology MariaDB password is required${NC}"
         fi
     done
-
-    CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID_DEFAULT}"
 
     echo ""
     NODE_AUTH_TOKEN=$(ask "Node Auth Token (optional)" "${NODE_AUTH_TOKEN_DEFAULT}" "secret")
@@ -978,8 +959,6 @@ if $IS_ROOT; then
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "NODE_AUTH_TOKEN", "Value": "$NODE_AUTH_TOKEN" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
-    { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
-    { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
     { "Name": "DEFAULT_NETWORK", "Value": "$DEFAULT_NETWORK" },
@@ -1004,8 +983,6 @@ else
     { "Name": "ROOT_DOMAIN", "Value": "$ROOT_DOMAIN" },
     { "Name": "TUNNEL_TOKEN", "Value": "$TUNNEL_TOKEN" },
     { "Name": "NODE_AUTH_TOKEN", "Value": "$NODE_AUTH_TOKEN" },
-    { "Name": "CLOUDFLARE_API_TOKEN", "Value": "$CLOUDFLARE_API_TOKEN" },
-    { "Name": "CLOUDFLARE_ACCOUNT_ID", "Value": "$CLOUDFLARE_ACCOUNT_ID" },
     { "Name": "READ_PACKAGES_GITHUB_PAT", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_TOKEN", "Value": "$GITHUB_PAT" },
     { "Name": "GITHUB_USERNAME", "Value": "$GITHUB_USERNAME" },
@@ -1147,9 +1124,6 @@ export MQTT_PORT
 export HTTP_PORT
 export GATEKEEPER_SECRET
 export READ_PACKAGES_GITHUB_PAT
-export CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}"
-export CLOUDFLARE_ACCOUNT_ID
 export GITHUB_TOKEN
 export GITHUB_USERNAME
 export DEFAULT_NETWORK
