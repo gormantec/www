@@ -207,7 +207,7 @@ sanitize_loaded_default() {
     placeholder_braced="\${$key}"
 
     case "$value" in
-        ""|"null"|"undefined"|"$key"|"$placeholder_plain"|"$placeholder_braced")
+        ""|"null"|"undefined"|"[decryption failed]"|"$key"|"$placeholder_plain"|"$placeholder_braced")
             echo ""
             ;;
         *)
@@ -515,6 +515,7 @@ GITHUB_PAT_DEFAULT="$(resolve_default 'READ_PACKAGES_GITHUB_PAT' "$GITHUB_PAT_DE
 NAS_PASSWORD_DEFAULT="$(resolve_default 'DOCDB_NAS_PASSWORD' "$NAS_PASSWORD_DEFAULT")"
 DOCDB_IOT_PASS_DEFAULT="$(resolve_default 'DOCDB_IOT_PASS' "$DOCDB_IOT_PASS_DEFAULT")"
 SYNOLOGY_DB_PASS_DEFAULT="$(resolve_default 'SYNOLOGY_DB_PASS' "$SYNOLOGY_DB_PASS_DEFAULT")"
+GATEKEEPER_SECRET_DEFAULT="$(resolve_default 'GATEKEEPER_SECRET' "$(sanitize_loaded_default 'GATEKEEPER_SECRET' "$GATEKEEPER_SECRET_DEFAULT")")"
 
 if [ -z "$SYNOLOGY_DB_PASS_DEFAULT" ]; then
     # Legacy snapshots predate SYNOLOGY_DB_PASS: it used to be derived from the
